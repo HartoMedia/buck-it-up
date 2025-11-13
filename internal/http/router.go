@@ -21,6 +21,11 @@ type Router struct {
 // Custom HTTP method for listing resources
 const MethodList = "LIST"
 
+func init() {
+	// Register custom HTTP method with chi
+	chi.RegisterMethod(MethodList)
+}
+
 func New(db *sql.DB) *Router {
 	// Create chi router
 	r := &Router{mux: chi.NewRouter(), db: db}
