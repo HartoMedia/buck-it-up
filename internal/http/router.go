@@ -8,21 +8,42 @@ import (
 	"strings"
 
 	"buck_It_Up/internal/models"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 type Router struct {
-	mux *nethttp.ServeMux
+	mux chi.Router
 	db  *sql.DB
 }
 
-func New(db *sql.DB) *Router {
-	r := &Router{mux: nethttp.NewServeMux(), db: db}
+// Custom HTTP method for listing resources
+const MethodList = "LIST"
 
-	// Register handlers using stdlib mux
-	r.mux.HandleFunc("/buckets/", r.getBucketByName) // matches /buckets/{name}
-	r.mux.HandleFunc("/", r.index)
-	r.mux.HandleFunc("/health", r.health)
-	r.mux.HandleFunc("/echo", r.echo)
+func New(db *sql.DB) *Router {
+	// Create chi router
+	r := &Router{mux: chi.NewRouter(), db: db}
+
+	// Basic middleware stack (recoverer + requestID + logger minimal)
+	r.mux.Use(middleware.RequestID)
+	r.mux.Use(middleware.RealIP)
+	r.mux.Use(middleware.Logger)
+	r.mux.Use(middleware.Recoverer)
+
+	// Routes
+	r.mux.Get("/health", r.health)
+	r.mux.Get("/echo", r.echo) // echo only supports GET body for parity; could be POST
+	r.mux.Get("/", r.index)
+
+	// Bucket routes group
+	r.mux.Route("/buckets", func(rg chi.Router) {
+		// LIST /buckets -> list all buckets
+		rg.MethodFunc(MethodList, "/", r.listBuckets)
+
+		// GET /buckets/{name}
+		rg.Get("/{name}", r.getBucketByName)
+	})
 
 	return r
 }
@@ -32,9 +53,8 @@ func (r *Router) Handler() nethttp.Handler {
 }
 
 func (r *Router) getBucketByName(w nethttp.ResponseWriter, req *nethttp.Request) {
-	// Expect path like /buckets/{name}
-	name := strings.TrimPrefix(req.URL.Path, "/buckets/")
-	if name == "" || strings.Contains(name, "/") {
+	name := chi.URLParam(req, "name")
+	if name == "" || strings.Contains(name, "/") { // chi already won't match embedded slash, but keep validation
 		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
 		return
 	}
@@ -56,9 +76,23 @@ func (r *Router) getBucketByName(w nethttp.ResponseWriter, req *nethttp.Request)
 	_ = json.NewEncoder(w).Encode(b)
 }
 
+// LIST /buckets
+func (r *Router) listBuckets(w nethttp.ResponseWriter, req *nethttp.Request) {
+	store := models.NewBucketStore(r.db)
+	ctx := req.Context()
+	buckets, err := store.ListBuckets(ctx)
+	if err != nil {
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(nethttp.StatusOK)
+	_ = json.NewEncoder(w).Encode(buckets)
+}
+
 func (r *Router) index(w nethttp.ResponseWriter, req *nethttp.Request) {
 	w.WriteHeader(nethttp.StatusOK)
-	_, _ = w.Write([]byte("Hello from stdlib net/http"))
+	_, _ = w.Write([]byte("Hello from chi router"))
 }
 
 func (r *Router) health(w nethttp.ResponseWriter, req *nethttp.Request) {
