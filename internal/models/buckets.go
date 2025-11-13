@@ -71,3 +71,11 @@ func (s *BucketStore) ListBuckets(ctx context.Context) ([]*Bucket, error) {
 	}
 	return buckets, nil
 }
+
+func (s *BucketStore) DeleteBucketByName(ctx context.Context, bucketName string) error {
+	_, err := s.db.ExecContext(ctx, `
+        DELETE FROM buckets
+        WHERE name = ?
+    `, bucketName)
+	return err
+}

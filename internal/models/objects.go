@@ -86,3 +86,33 @@ func (s *ObjectStore) DeleteObject(ctx context.Context, bucketID int64, objectKe
 	)
 	return err
 }
+
+func (s *ObjectStore) ListObjectsByBucketName(ctx context.Context, bucketName string) ([]*Object, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT o.id, o.bucket_id, o.object_key, o.file_path, o.size, o.content_type, o.checksum, o.created_at
+        FROM objects o
+        JOIN buckets b ON b.id = o.bucket_id
+        WHERE b.name = ?
+        ORDER BY o.id
+    `, bucketName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var objects []*Object
+	for rows.Next() {
+		var o Object
+		if err := rows.Scan(
+			&o.ID, &o.BucketID, &o.ObjectKey, &o.FilePath, &o.Size,
+			&o.ContentType, &o.Checksum, &o.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		objects = append(objects, &o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return objects, nil
+}

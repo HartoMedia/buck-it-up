@@ -33,3 +33,18 @@ Notes:
 - The project uses modernc.org/sqlite so it doesn't require cgo (fixes the previous go-sqlite3 "CGO_ENABLED=0" issue).
 - Default DB file is data.db in the repo root. It will be created automatically and migrations applied on first run.
 
+# Buck It Up
+
+## Endpoints
+
+### Get Object
+
+GET /{bucketName}/{objectKey}
+
+Returns JSON:
+{
+  "object": { /* metadata */ },
+  "content": "raw file content"  // text; binary objects may need base64 later
+}
+
+Object file paths are stored under `data/buckets/<bucket_id>/objects/<object_id>`.
