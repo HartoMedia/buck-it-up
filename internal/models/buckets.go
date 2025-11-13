@@ -20,10 +20,10 @@ func NewBucketStore(db *sql.DB) *BucketStore {
 func (s *BucketStore) NewBucket(ctx context.Context, b *Bucket) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
         INSERT INTO buckets (
-            id, name, created_at
-        ) VALUES (?, ?, ?)
+            name, created_at
+        ) VALUES (?, ?)
     `,
-		b.ID, b.Name, b.CreatedAt,
+		b.Name, b.CreatedAt,
 	)
 	if err != nil {
 		return 0, err
@@ -40,7 +40,7 @@ func (s *BucketStore) GetBucketByName(ctx context.Context, bucketName string) (*
     `,
 		bucketName,
 	).Scan(
-		&b.ID, &b.ID, &b.Name, &b.CreatedAt,
+		&b.ID, &b.Name, &b.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
