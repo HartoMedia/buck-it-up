@@ -69,6 +69,10 @@ func New(db *sql.DB) *Router {
 		admin.MethodFunc(MethodList, "/", r.listBuckets)
 		// POST / -> add a new bucket
 		admin.Post("/", r.createBucket)
+		// GET /{name}/access-keys -> list access keys for a bucket
+		admin.Get("/{name}/access-keys", r.listAccessKeys)
+		// POST /{name}/access-keys/recreate -> recreate access key for a bucket and role
+		admin.Post("/{name}/access-keys/recreate", r.recreateAccessKey)
 	})
 
 	// Protected bucket routes - read only access
@@ -679,6 +683,118 @@ func (r *Router) deleteObjectByKey(w nethttp.ResponseWriter, req *nethttp.Reques
 	}
 
 	w.WriteHeader(nethttp.StatusNoContent)
+}
+
+// GET /{name}/access-keys -> list access keys for a bucket
+func (r *Router) listAccessKeys(w nethttp.ResponseWriter, req *nethttp.Request) {
+	name := chi.URLParam(req, "name")
+	if name == "" || strings.Contains(name, "/") {
+		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
+		return
+	}
+
+	ctx := req.Context()
+	bStore := models.NewBucketStore(r.db)
+	bucket, err := bStore.GetBucketByName(ctx, name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			nethttp.NotFound(w, req)
+			return
+		}
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+
+	akStore := models.NewAccessKeyStore(r.db)
+	accessKeys, err := akStore.ListAccessKeysByBucketID(ctx, bucket.ID)
+	if err != nil {
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+
+	// Convert to response DTOs (without secrets)
+	response := make([]*models.AccessKeyResponse, 0, len(accessKeys))
+	for _, ak := range accessKeys {
+		response = append(response, ak.ToResponse())
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(nethttp.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// POST /{name}/access-keys/recreate -> recreate access key for a bucket and role
+func (r *Router) recreateAccessKey(w nethttp.ResponseWriter, req *nethttp.Request) {
+	name := chi.URLParam(req, "name")
+	if name == "" || strings.Contains(name, "/") {
+		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
+		return
+	}
+
+	// Parse request body to get role
+	var body struct {
+		Role models.AccessKeyRole `json:"role"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		nethttp.Error(w, "invalid json", nethttp.StatusBadRequest)
+		return
+	}
+
+	// Validate role
+	if body.Role != models.RoleReadOnly && body.Role != models.RoleReadWrite && body.Role != models.RoleAll {
+		nethttp.Error(w, "invalid role: must be 'readOnly', 'readWrite', or 'all'", nethttp.StatusBadRequest)
+		return
+	}
+
+	ctx := req.Context()
+	bStore := models.NewBucketStore(r.db)
+	bucket, err := bStore.GetBucketByName(ctx, name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			nethttp.NotFound(w, req)
+			return
+		}
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+
+	akStore := models.NewAccessKeyStore(r.db)
+
+	// Delete existing access key with this role
+	if err := akStore.DeleteAccessKeyByBucketAndRole(ctx, bucket.ID, body.Role); err != nil {
+		nethttp.Error(w, "failed to delete old access key", nethttp.StatusInternalServerError)
+		return
+	}
+
+	// Generate new access key
+	keyID, secret, err := r.generateAccessKey()
+	if err != nil {
+		nethttp.Error(w, "failed to generate access key", nethttp.StatusInternalServerError)
+		return
+	}
+
+	// Hash the secret for storage
+	secretHash := hashSecret(secret)
+
+	ak := &models.AccessKey{
+		BucketID:   bucket.ID,
+		KeyID:      keyID,
+		SecretHash: secretHash,
+		Role:       body.Role,
+		CreatedAt:  time.Now().Unix(),
+	}
+
+	akID, err := akStore.CreateAccessKey(ctx, ak)
+	if err != nil {
+		nethttp.Error(w, "failed to create access key", nethttp.StatusInternalServerError)
+		return
+	}
+	ak.ID = akID
+
+	// Return the new access key with secret
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(nethttp.StatusCreated)
+	_ = json.NewEncoder(w).Encode(ak.ToResponseWithSecret(secret))
 }
 
 // Helper to ensure bucket objects directory exists

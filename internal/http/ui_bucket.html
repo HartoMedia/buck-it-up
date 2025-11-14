@@ -71,6 +71,16 @@
         .folder-meta { color: #777; font-size: 12px; margin-left: 8px; }
         .object-name { color: #222; }
         .indent { display: inline-block; }
+        .access-keys-section { background: white; border-radius: 8px; padding: 25px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .access-keys-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .access-keys-header h3 { margin: 0; color: #333; }
+        .access-keys-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        .access-key-card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px; }
+        .access-key-card h4 { margin: 0 0 10px 0; color: #667eea; font-size: 16px; text-transform: capitalize; }
+        .access-key-field { margin-bottom: 10px; }
+        .access-key-field label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600; }
+        .access-key-field .value { font-family: 'Courier New', monospace; font-size: 12px; background: white; padding: 8px; border-radius: 4px; border: 1px solid #ddd; word-break: break-all; }
+        .access-key-card .actions { margin-top: 12px; }
     </style>
 </head>
 <body>
@@ -85,7 +95,18 @@
         <div class="breadcrumb"><a href="/ui/dashboard">← Back to Buckets</a></div>
         <div class="header">
             <h2 id="bucketTitle">Loading...</h2>
-            <button class="btn btn-primary" onclick="showUploadModal()">+ Upload Object</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn" onclick="toggleAccessKeys()">🔑 Access Keys</button>
+                <button class="btn btn-primary" onclick="showUploadModal()">+ Upload Object</button>
+            </div>
+        </div>
+        <div id="accessKeysSection" class="access-keys-section" style="display: none;">
+            <div class="access-keys-header">
+                <h3>Access Keys</h3>
+                <button class="btn btn-sm" onclick="toggleAccessKeys()">Hide</button>
+            </div>
+            <div id="accessKeysLoading" class="loading" style="padding: 20px;">Loading access keys...</div>
+            <div id="accessKeysGrid" class="access-keys-grid" style="display: none;"></div>
         </div>
         <div id="loading" class="loading">Loading objects...</div>
         <div id="objectsTable" class="objects-table" style="display: none;">
@@ -174,9 +195,34 @@
             </div>
         </div>
     </div>
+    <div id="recreatedKeyModal" class="modal">
+        <div class="modal-content">
+            <button type="button" class="modal-close" aria-label="Close" onclick="hideRecreatedKeyModal()">×</button>
+            <h3>⚠️ New Access Key Created</h3>
+            <p style="color: #e74c3c; margin-bottom: 20px; font-weight: 600;">Save these credentials now! The secret will not be shown again.</p>
+            <div class="form-group">
+                <label>Role</label>
+                <div id="recreatedRole" style="padding: 10px; background: #f8f9fa; border-radius: 4px; text-transform: capitalize;"></div>
+            </div>
+            <div class="form-group">
+                <label>Key ID</label>
+                <div id="recreatedKeyId" class="content-preview" style="max-height: none;"></div>
+            </div>
+            <div class="form-group">
+                <label>Secret</label>
+                <div id="recreatedSecret" class="content-preview" style="max-height: none;"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" onclick="copyRecreatedKey()">📋 Copy Both</button>
+                <button type="button" class="btn" onclick="hideRecreatedKeyModal()">Close</button>
+            </div>
+        </div>
+    </div>
     <script>
         let currentBucket = '';
         let currentViewObject = null;
+        let currentRecreatedKey = null;
+
         function getBucketName() {
             const path = window.location.pathname;
             const match = path.match(/\/ui\/bucket\/([^\/]+)/);
@@ -195,6 +241,167 @@
             const i = Math.floor(Math.log(bytes) / Math.log(k));
             return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
         }
+
+        async function toggleAccessKeys() {
+            const section = document.getElementById('accessKeysSection');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                await loadAccessKeys();
+            } else {
+                section.style.display = 'none';
+            }
+        }
+
+        async function loadAccessKeys() {
+            const auth = getAuthHeader();
+            if (!auth) return;
+
+            const loading = document.getElementById('accessKeysLoading');
+            const grid = document.getElementById('accessKeysGrid');
+
+            loading.style.display = 'block';
+            grid.style.display = 'none';
+
+            try {
+                const response = await fetch('/' + encodeURIComponent(currentBucket) + '/access-keys', {
+                    method: 'GET',
+                    headers: { 'Authorization': auth }
+                });
+                if (response.status === 401) { logout(); return; }
+                if (!response.ok) throw new Error('Failed to load access keys');
+
+                const keys = await response.json();
+                displayAccessKeys(keys);
+            } catch (err) {
+                console.error('Error loading access keys:', err);
+                loading.textContent = 'Error loading access keys: ' + err.message;
+            }
+        }
+
+        function displayAccessKeys(keys) {
+            const loading = document.getElementById('accessKeysLoading');
+            const grid = document.getElementById('accessKeysGrid');
+
+            loading.style.display = 'none';
+            grid.style.display = 'grid';
+
+            const roleOrder = { 'readOnly': 1, 'readWrite': 2, 'all': 3 };
+            keys.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
+
+            grid.innerHTML = keys.map(key => {
+                const createdDate = new Date(key.created_at * 1000).toLocaleDateString();
+                const roleNames = {
+                    'readOnly': 'Read Only',
+                    'readWrite': 'Read/Write',
+                    'all': 'Full Access (All)'
+                };
+                return `
+                    <div class="access-key-card">
+                        <h4>${roleNames[key.role] || key.role}</h4>
+                        <div class="access-key-field">
+                            <label>Key ID</label>
+                            <div class="value">${escapeHtml(key.key_id)}</div>
+                        </div>
+                        <div class="access-key-field">
+                            <label>Created</label>
+                            <div class="value">${createdDate}</div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-danger btn-sm" onclick="recreateAccessKey('${key.role}')">🔄 Recreate</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function recreateAccessKey(role) {
+            const roleNames = {
+                'readOnly': 'Read Only',
+                'readWrite': 'Read/Write',
+                'all': 'Full Access (All)'
+            };
+
+            if (!confirm(`Are you sure you want to recreate the ${roleNames[role]} access key?\n\nThe old key will stop working immediately!`)) {
+                return;
+            }
+
+            const auth = getAuthHeader();
+            if (!auth) return;
+
+            try {
+                const response = await fetch('/' + encodeURIComponent(currentBucket) + '/access-keys/recreate', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': auth,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ role: role })
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || 'Failed to recreate access key');
+                }
+
+                const newKey = await response.json();
+                currentRecreatedKey = newKey;
+
+                // Show the new key with secret
+                document.getElementById('recreatedRole').textContent = roleNames[newKey.role] || newKey.role;
+                document.getElementById('recreatedKeyId').textContent = newKey.key_id;
+                document.getElementById('recreatedSecret').textContent = newKey.secret;
+                document.getElementById('recreatedKeyModal').classList.add('show');
+
+                // Reload access keys to show the new key
+                await loadAccessKeys();
+            } catch (err) {
+                alert('Error recreating access key: ' + err.message);
+            }
+        }
+
+        function hideRecreatedKeyModal() {
+            document.getElementById('recreatedKeyModal').classList.remove('show');
+            currentRecreatedKey = null;
+        }
+
+        function copyRecreatedKey() {
+            if (!currentRecreatedKey) return;
+
+            const text = `Key ID: ${currentRecreatedKey.key_id}\nSecret: ${currentRecreatedKey.secret}`;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Access key credentials copied to clipboard!');
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                alert('Access key credentials copied to clipboard!');
+            } catch (err) {
+                alert('Failed to copy. Please copy manually:\n\n' + text);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function escapeHtml(s) {
+            if (!s) return '';
+            return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+        }
+
         async function loadObjects() {
             currentBucket = getBucketName();
             if (!currentBucket) { window.location.href = '/ui/dashboard'; return; }
@@ -499,10 +706,13 @@
         }
         bindModalDismiss(document.getElementById('uploadModal'), hideUploadModal);
         bindModalDismiss(document.getElementById('viewModal'), hideViewModal);
+        bindModalDismiss(document.getElementById('recreatedKeyModal'), hideRecreatedKeyModal);
         document.addEventListener('keydown', function(e) {
             if (e.key !== 'Escape') return;
             const viewOpen = document.getElementById('viewModal').classList.contains('show');
             const uploadOpen = document.getElementById('uploadModal').classList.contains('show');
+            const recreatedOpen = document.getElementById('recreatedKeyModal').classList.contains('show');
+            if (recreatedOpen) { hideRecreatedKeyModal(); return; }
             if (viewOpen) { hideViewModal(); return; }
             if (uploadOpen) { hideUploadModal(); return; }
         });

@@ -54,3 +54,42 @@ func (s *AccessKeyStore) CreateAccessKey(ctx context.Context, ak *AccessKey) (in
 	}
 	return res.LastInsertId()
 }
+
+func (s *AccessKeyStore) DeleteAccessKeyByBucketAndRole(ctx context.Context, bucketID int64, role AccessKeyRole) error {
+	_, err := s.db.ExecContext(ctx, `
+		DELETE FROM access_keys
+		WHERE bucket_id = ? AND role = ?
+	`, bucketID, role)
+	return err
+}
+
+func (s *AccessKeyStore) ListAccessKeysByBucketID(ctx context.Context, bucketID int64) ([]*AccessKey, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, bucket_id, key_id, secret_hash, role, created_at
+		FROM access_keys
+		WHERE bucket_id = ?
+		ORDER BY role
+	`, bucketID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var keys []*AccessKey
+	for rows.Next() {
+		var ak AccessKey
+		err := rows.Scan(
+			&ak.ID,
+			&ak.BucketID,
+			&ak.KeyID,
+			&ak.SecretHash,
+			&ak.Role,
+			&ak.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, &ak)
+	}
+	return keys, rows.Err()
+}
