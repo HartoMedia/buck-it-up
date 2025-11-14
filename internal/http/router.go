@@ -50,11 +50,14 @@ func New(db *sql.DB) *Router {
 	r.mux.Get("/health", r.health)
 	r.mux.Get("/echo", r.echo)
 
-	// Bucket routes at root (admin only - will be protected later)
-	// LIST / -> list all buckets
-	r.mux.MethodFunc(MethodList, "/", r.listBuckets)
-	// POST / -> add a new bucket
-	r.mux.Post("/", r.createBucket)
+	// Admin-only bucket management routes
+	r.mux.Group(func(admin chi.Router) {
+		admin.Use(r.AuthMiddleware(AuthLevelAll))
+		// LIST / -> list all buckets
+		admin.MethodFunc(MethodList, "/", r.listBuckets)
+		// POST / -> add a new bucket
+		admin.Post("/", r.createBucket)
+	})
 
 	// Protected bucket routes - read only access
 	r.mux.Group(func(readOnly chi.Router) {

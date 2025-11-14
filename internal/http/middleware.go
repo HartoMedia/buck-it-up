@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	nethttp "net/http"
+	"os"
 	"strings"
 
 	"buck_It_Up/internal/models"
@@ -34,7 +35,7 @@ func (r *Router) AuthMiddleware(level AuthLevel) func(nethttp.Handler) nethttp.H
 			}
 
 			// Extract credentials from Authorization header
-			// Expected format: "Bearer <key_id>:<secret>"
+			// Expected format: "Bearer <key_id>:<secret>" or "Bearer admin:<admin_password>"
 			authHeader := req.Header.Get("Authorization")
 			if authHeader == "" {
 				w.Header().Set("X-Auth-Error", "missing authorization header")
@@ -60,6 +61,36 @@ func (r *Router) AuthMiddleware(level AuthLevel) func(nethttp.Handler) nethttp.H
 
 			keyID := credentials[0]
 			secret := credentials[1]
+
+			// Check if this is an admin login
+			if keyID == "admin" {
+				adminPassword := os.Getenv("ADMIN_PASSWORD")
+				if adminPassword == "" {
+					// Admin password not configured
+					w.Header().Set("X-Auth-Error", "admin authentication not configured")
+					nethttp.Error(w, "invalid credentials", nethttp.StatusUnauthorized)
+					return
+				}
+
+				// Verify admin password using constant-time comparison
+				if subtle.ConstantTimeCompare([]byte(secret), []byte(adminPassword)) != 1 {
+					w.Header().Set("X-Auth-Error", "invalid admin password")
+					nethttp.Error(w, "invalid credentials", nethttp.StatusUnauthorized)
+					return
+				}
+
+				// Admin authenticated - create admin auth context with full access
+				authCtx := &AuthContext{
+					KeyID:    "admin",
+					BucketID: 0, // Admin has access to all buckets
+					Role:     models.RoleAll,
+				}
+				ctx := SetAuthContext(req.Context(), authCtx)
+
+				// Continue to the next handler with admin privileges
+				next.ServeHTTP(w, req.WithContext(ctx))
+				return
+			}
 
 			// Look up the access key in the database
 			akStore := models.NewAccessKeyStore(r.db)
