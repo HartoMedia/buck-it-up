@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buck It Up - Bucket View</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; min-height: 100vh; }
+        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .navbar h1 { font-size: 24px; }
+        .navbar .user-info { display: flex; gap: 15px; align-items: center; }
+        .btn { padding: 10px 20px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; cursor: pointer; transition: all 0.3s; text-decoration: none; display: inline-block; font-size: 14px; }
+        .btn:hover { background: rgba(255,255,255,0.3); }
+        .btn-primary { background: white; color: #667eea; border: none; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .btn-danger { background: #e74c3c; border: none; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .container { max-width: 1400px; margin: 40px auto; padding: 0 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h2 { color: #333; }
+        .breadcrumb { color: #666; margin-bottom: 20px; }
+        .breadcrumb a { color: #667eea; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .objects-table { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: #f8f9fa; }
+        th { padding: 15px; text-align: left; font-weight: 600; color: #333; border-bottom: 2px solid #e0e0e0; }
+        td { padding: 15px; border-bottom: 1px solid #e0e0e0; }
+        tr:hover { background: #f8f9fa; }
+        .actions { display: flex; gap: 8px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-content h3 { margin-bottom: 20px; color: #333; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; }
+        .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; }
+        .form-group textarea { min-height: 150px; font-family: 'Courier New', monospace; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #667eea; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; background: white; border-radius: 8px; }
+        .empty-state h3 { font-size: 24px; margin-bottom: 10px; }
+        .loading { text-align: center; padding: 40px; color: #999; }
+        .size { color: #666; font-size: 13px; }
+        .content-preview { background: #f8f9fa; padding: 15px; border-radius: 6px; max-height: 300px; overflow: auto; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+        .file-input-wrapper { position: relative; display: inline-block; width: 100%; }
+        .file-input-wrapper input[type="file"] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+        .file-input-label { display: block; padding: 10px; background: #f8f9fa; border: 2px dashed #e0e0e0; border-radius: 6px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .file-input-label:hover { border-color: #667eea; background: #f0f0ff; }
+        .file-selected { margin-top: 10px; color: #667eea; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>🪣 Buck It Up</h1>
+        <div class="user-info">
+            <span>Admin</span>
+            <button class="btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="breadcrumb"><a href="/ui/dashboard">← Back to Buckets</a></div>
+        <div class="header">
+            <h2 id="bucketTitle">Loading...</h2>
+            <button class="btn btn-primary" onclick="showUploadModal()">+ Upload Object</button>
+        </div>
+        <div id="loading" class="loading">Loading objects...</div>
+        <div id="objectsTable" class="objects-table" style="display: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Object Key</th>
+                        <th>Size</th>
+                        <th>Content Type</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="objectsBody"></tbody>
+            </table>
+        </div>
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <h3>No objects yet</h3>
+            <p>Upload your first object to get started</p>
+        </div>
+    </div>
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <h3>Upload Object</h3>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="objectKey">Object Key</label>
+                    <input type="text" id="objectKey" name="objectKey" required placeholder="e.g., my-file.txt or folder/file.json">
+                </div>
+                <div class="form-group">
+                    <label for="contentType">Content Type</label>
+                    <input type="text" id="contentType" name="contentType" placeholder="e.g., text/plain (auto-detected from file)">
+                </div>
+                <div class="form-group">
+                    <label>Upload Method</label>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="uploadMethod" value="file" checked onchange="toggleUploadMethod()">
+                            File Upload
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="uploadMethod" value="text" onchange="toggleUploadMethod()">
+                            Text Content
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group" id="fileUploadGroup">
+                    <label>Choose File</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" onchange="handleFileSelect()">
+                        <div class="file-input-label">Click to select a file or drag and drop</div>
+                    </div>
+                    <div id="fileSelected" class="file-selected"></div>
+                </div>
+                <div class="form-group" id="textUploadGroup" style="display: none;">
+                    <label for="contentText">Text Content</label>
+                    <textarea id="contentText" name="contentText" placeholder="Enter text content here..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="hideUploadModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="viewModal" class="modal">
+        <div class="modal-content">
+            <h3 id="viewObjectKey">Object Details</h3>
+            <div class="form-group">
+                <label>Content Type</label>
+                <div id="viewContentType" style="padding: 10px; background: #f8f9fa; border-radius: 4px;"></div>
+            </div>
+            <div class="form-group">
+                <label>Size</label>
+                <div id="viewSize" style="padding: 10px; background: #f8f9fa; border-radius: 4px;"></div>
+            </div>
+            <div class="form-group">
+                <label>Content Preview</label>
+                <div id="viewContent" class="content-preview"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="hideViewModal()">Close</button>
+                <button type="button" class="btn btn-primary" onclick="downloadCurrentObject()">Download</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let currentBucket = '';
+        let currentViewObject = null;
+        function getBucketName() {
+            const path = window.location.pathname;
+            const match = path.match(/\/ui\/bucket\/([^\/]+)/);
+            return match ? decodeURIComponent(match[1]) : null;
+        }
+        function getAuthHeader() {
+            const auth = localStorage.getItem('adminAuth');
+            if (!auth) { window.location.href = '/ui/login'; return null; }
+            return 'Bearer ' + atob(auth);
+        }
+        function logout() { localStorage.removeItem('adminAuth'); window.location.href = '/ui/login'; }
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        async function loadObjects() {
+            currentBucket = getBucketName();
+            if (!currentBucket) { window.location.href = '/ui/dashboard'; return; }
+            document.getElementById('bucketTitle').textContent = 'Bucket: ' + currentBucket;
+            const auth = getAuthHeader();
+            if (!auth) return;
+            try {
+                const response = await fetch('/' + encodeURIComponent(currentBucket), { method: 'LIST', headers: { 'Authorization': auth } });
+                if (response.status === 401) { logout(); return; }
+                if (!response.ok) throw new Error('Failed to load objects');
+                const objects = await response.json();
+                displayObjects(objects);
+            } catch (err) {
+                console.error('Error loading objects:', err);
+                document.getElementById('loading').textContent = 'Error loading objects: ' + err.message;
+            }
+        }
+        function displayObjects(objects) {
+            const loading = document.getElementById('loading');
+            const table = document.getElementById('objectsTable');
+            const emptyState = document.getElementById('emptyState');
+            const tbody = document.getElementById('objectsBody');
+            loading.style.display = 'none';
+            if (!objects || objects.length === 0) {
+                emptyState.style.display = 'block';
+                table.style.display = 'none';
+                return;
+            }
+            emptyState.style.display = 'none';
+            table.style.display = 'block';
+            tbody.innerHTML = objects.map(obj => {
+                const createdDate = new Date(obj.created_at * 1000).toLocaleString();
+                const escapedKey = obj.object_key.replace(/'/g, "\\'");
+                return '<tr><td><strong>' + obj.object_key + '</strong></td><td class="size">' + formatBytes(obj.size) + '</td><td>' + (obj.content_type || 'N/A') + '</td><td>' + createdDate + '</td><td><div class="actions"><button class="btn btn-primary btn-sm" onclick="viewObject(\'' + escapedKey + '\')">View</button><button class="btn btn-sm" onclick="downloadObject(\'' + escapedKey + '\')">Download</button><button class="btn btn-danger btn-sm" onclick="deleteObject(\'' + escapedKey + '\')">Delete</button></div></td></tr>';
+            }).join('');
+        }
+        function toggleUploadMethod() {
+            const method = document.querySelector('input[name="uploadMethod"]:checked').value;
+            document.getElementById('fileUploadGroup').style.display = method === 'file' ? 'block' : 'none';
+            document.getElementById('textUploadGroup').style.display = method === 'text' ? 'block' : 'none';
+        }
+        function handleFileSelect() {
+            const fileInput = document.getElementById('fileInput');
+            const fileSelected = document.getElementById('fileSelected');
+            const objectKeyInput = document.getElementById('objectKey');
+            const contentTypeInput = document.getElementById('contentType');
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                fileSelected.textContent = 'Selected: ' + file.name + ' (' + formatBytes(file.size) + ')';
+                if (!objectKeyInput.value) objectKeyInput.value = file.name;
+                if (!contentTypeInput.value && file.type) contentTypeInput.value = file.type;
+            } else {
+                fileSelected.textContent = '';
+            }
+        }
+        function showUploadModal() {
+            document.getElementById('uploadModal').classList.add('show');
+            document.getElementById('objectKey').value = '';
+            document.getElementById('contentType').value = '';
+            document.getElementById('contentText').value = '';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileSelected').textContent = '';
+            document.getElementById('objectKey').focus();
+        }
+        function hideUploadModal() { document.getElementById('uploadModal').classList.remove('show'); }
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const auth = getAuthHeader();
+            if (!auth) return;
+            const objectKey = document.getElementById('objectKey').value.trim();
+            const contentType = document.getElementById('contentType').value.trim() || 'application/octet-stream';
+            const method = document.querySelector('input[name="uploadMethod"]:checked').value;
+            if (method === 'file') {
+                const fileInput = document.getElementById('fileInput');
+                if (!fileInput.files.length) { alert('Please select a file'); return; }
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const arrayBuffer = e.target.result;
+                    const bytes = new Uint8Array(arrayBuffer);
+                    let binary = '';
+                    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                    await uploadObject(auth, objectKey, btoa(binary), contentType, true);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                await uploadObject(auth, objectKey, document.getElementById('contentText').value, contentType, false);
+            }
+        });
+        async function uploadObject(auth, objectKey, content, contentType, base64Encoded) {
+            try {
+                const response = await fetch('/' + encodeURIComponent(currentBucket) + '/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': auth, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ object_key: objectKey, content: content, content_type: contentType, base64_encoded: base64Encoded })
+                });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || 'Failed to upload object');
+                }
+                hideUploadModal();
+                loadObjects();
+            } catch (err) {
+                alert('Error uploading object: ' + err.message);
+            }
+        }
+        async function viewObject(objectKey) {
+            const auth = getAuthHeader();
+            if (!auth) return;
+            try {
+                const response = await fetch('/' + encodeURIComponent(currentBucket) + '/all/' + objectKey, {
+                    method: 'GET',
+                    headers: { 'Authorization': auth }
+                });
+                if (!response.ok) throw new Error('Failed to load object');
+                const data = await response.json();
+                currentViewObject = { key: objectKey, data: data };
+                document.getElementById('viewObjectKey').textContent = objectKey;
+                document.getElementById('viewContentType').textContent = data.object.content_type || 'N/A';
+                document.getElementById('viewSize').textContent = formatBytes(data.object.size);
+                try {
+                    const contentBytes = atob(data.content);
+                    const isText = data.object.content_type && (data.object.content_type.startsWith('text/') || data.object.content_type.includes('json') || data.object.content_type.includes('xml'));
+                    document.getElementById('viewContent').textContent = isText ? contentBytes : '[Binary content - ' + formatBytes(data.object.size) + ']\nUse Download to save the file.';
+                } catch (err) {
+                    document.getElementById('viewContent').textContent = '[Unable to preview content]';
+                }
+                document.getElementById('viewModal').classList.add('show');
+            } catch (err) {
+                alert('Error viewing object: ' + err.message);
+            }
+        }
+        function hideViewModal() { document.getElementById('viewModal').classList.remove('show'); currentViewObject = null; }
+        function downloadCurrentObject() { if (currentViewObject) downloadObject(currentViewObject.key); }
+        async function downloadObject(objectKey) {
+            const auth = getAuthHeader();
+            if (!auth) return;
+            try {
+                const response = await fetch('/' + encodeURIComponent(currentBucket) + '/all/' + objectKey, {
+                    method: 'GET',
+                    headers: { 'Authorization': auth }
+                });
+                if (!response.ok) throw new Error('Failed to download object');
+                const data = await response.json();
+                const contentBytes = atob(data.content);
+                const bytes = new Uint8Array(contentBytes.length);
+                for (let i = 0; i < contentBytes.length; i++) bytes[i] = contentBytes.charCodeAt(i);
+                const blob = new Blob([bytes], { type: data.object.content_type || 'application/octet-stream' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = objectKey.split('/').pop();
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (err) {
+                alert('Error downloading object: ' + err.message);
+            }
+        }
+        async function deleteObject(objectKey) {
+            if (!confirm('Are you sure you want to delete "' + objectKey + '"?')) return;
+            const auth = getAuthHeader();
+            if (!auth) return;
+            try {
+                const response = await fetch('/' + encodeURIComponent(currentBucket) + '/' + objectKey, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': auth }
+                });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text || 'Failed to delete object');
+                }
+                loadObjects();
+            } catch (err) {
+                alert('Error deleting object: ' + err.message);
+            }
+        }
+        loadObjects();
+    </script>
+</body>
+</html>
+

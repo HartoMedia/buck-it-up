@@ -33,17 +33,54 @@ Notes:
 - The project uses modernc.org/sqlite so it doesn't require cgo (fixes the previous go-sqlite3 "CGO_ENABLED=0" issue).
 - Default DB file is data.db in the repo root. It will be created automatically and migrations applied on first run.
 - **Admin Access:** Set `ADMIN_PASSWORD` environment variable to enable admin access to all routes. See [ADMIN_ACCESS.md](ADMIN_ACCESS.md) for details.
+- **Web UI:** Access the admin dashboard at `/ui` for a graphical interface. See [WEBUI_DOCUMENTATION.md](WEBUI_DOCUMENTATION.md) for details.
 
 # Buck It Up
 
 A simple object storage service with bucket management and access control.
+
+## Features
+
+- 🪣 **Bucket Management** - Create, list, and delete buckets
+- 📦 **Object Storage** - Upload, download, and delete objects with metadata
+- 🔐 **Access Control** - Role-based access keys (read-only, read-write, all)
+- 👑 **Admin Access** - Global admin password for full system access
+- 🌐 **Web UI** - Modern browser-based admin dashboard at `/ui`
+- 💾 **SQLite Storage** - Embedded database with automatic migrations
+- 🚀 **No CGO Required** - Pure Go implementation using modernc.org/sqlite
+
+## Web UI
+
+Buck It Up includes a built-in web interface for easy administration:
+
+**Access:** Open `http://localhost:8080/ui` in your browser
+
+**Features:**
+- Visual bucket and object management
+- Drag-and-drop file uploads
+- Content preview for text files
+- One-click downloads
+- Mobile-responsive design
+
+**Getting Started:**
+```powershell
+# Set admin password
+$env:ADMIN_PASSWORD = "your-secure-password"
+
+# Start server
+.\buck_It_Up.exe
+
+# Open browser to http://localhost:8080/ui
+```
+
+See [WEBUI_DOCUMENTATION.md](WEBUI_DOCUMENTATION.md) for complete UI documentation.
 
 ## Authentication
 
 Buck It Up uses two authentication methods:
 
 1. **Access Keys** - Bucket-specific credentials with role-based permissions (read-only, read-write, all)
-2. **Admin Password** - Global administrator access to all buckets and routes
+2. **Admin Password** - Global administrator access to all buckets and routes (required for Web UI)
 
 See [AUTHENTICATION.md](AUTHENTICATION.md) for access key details and [ADMIN_ACCESS.md](ADMIN_ACCESS.md) for admin password setup.
 
