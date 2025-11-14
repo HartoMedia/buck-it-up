@@ -2,7 +2,10 @@ package http
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -175,7 +178,8 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 	store := models.NewBucketStore(r.db)
 	ctx := req.Context()
 	bucket := &models.Bucket{Name: name, CreatedAt: time.Now().Unix()}
-	if _, err := store.NewBucket(ctx, bucket); err != nil {
+	bucketID, err := store.NewBucket(ctx, bucket)
+	if err != nil {
 		// Check for uniqueness violation (sqlite returns error string containing "UNIQUE")
 		errMsg := err.Error()
 		if strings.Contains(strings.ToLower(errMsg), "unique") {
@@ -185,9 +189,70 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
 		return
 	}
+	bucket.ID = bucketID
+
+	// Generate 3 access keys - one for each role
+	akStore := models.NewAccessKeyStore(r.db)
+	roles := []models.AccessKeyRole{
+		models.RoleReadOnly,
+		models.RoleReadWrite,
+		models.RoleAll,
+	}
+
+	type AccessKeyWithSecret struct {
+		*models.AccessKey
+		Secret string `json:"secret"`
+	}
+
+	accessKeys := make([]AccessKeyWithSecret, 0, 3)
+
+	for _, role := range roles {
+		keyID, secret, err := r.generateAccessKey()
+		if err != nil {
+			// Rollback: delete the bucket (this will cascade delete any created keys)
+			_ = store.DeleteBucketByName(ctx, name)
+			nethttp.Error(w, "failed to generate access keys", nethttp.StatusInternalServerError)
+			return
+		}
+
+		// Hash the secret for storage
+		secretHash := hashSecret(secret)
+
+		ak := &models.AccessKey{
+			BucketID:   bucketID,
+			KeyID:      keyID,
+			SecretHash: secretHash,
+			Role:       role,
+			CreatedAt:  time.Now().Unix(),
+		}
+
+		akID, err := akStore.CreateAccessKey(ctx, ak)
+		if err != nil {
+			// Rollback: delete the bucket
+			_ = store.DeleteBucketByName(ctx, name)
+			nethttp.Error(w, "failed to create access keys", nethttp.StatusInternalServerError)
+			return
+		}
+		ak.ID = akID
+
+		accessKeys = append(accessKeys, AccessKeyWithSecret{
+			AccessKey: ak,
+			Secret:    secret,
+		})
+	}
+
+	// Return bucket with access keys
+	response := struct {
+		*models.Bucket
+		AccessKeys []AccessKeyWithSecret `json:"access_keys"`
+	}{
+		Bucket:     bucket,
+		AccessKeys: accessKeys,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(nethttp.StatusCreated)
-	_ = json.NewEncoder(w).Encode(bucket)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (r *Router) deleteBucketByName(w nethttp.ResponseWriter, req *nethttp.Request) {
@@ -593,4 +658,29 @@ func (r *Router) updateObjectFilePath(ctx context.Context, objectID int64, fileP
 		WHERE id = ?
 	`, filePath, objectID)
 	return err
+}
+
+// generateAccessKey generates a secure random key ID and secret
+func (r *Router) generateAccessKey() (keyID string, secret string, err error) {
+	// Generate keyID (20 bytes -> ~27 chars base64)
+	keyIDBytes := make([]byte, 20)
+	if _, err := rand.Read(keyIDBytes); err != nil {
+		return "", "", err
+	}
+	keyID = base64.URLEncoding.EncodeToString(keyIDBytes)
+
+	// Generate secret (32 bytes -> ~43 chars base64)
+	secretBytes := make([]byte, 32)
+	if _, err := rand.Read(secretBytes); err != nil {
+		return "", "", err
+	}
+	secret = base64.URLEncoding.EncodeToString(secretBytes)
+
+	return keyID, secret, nil
+}
+
+// hashSecret creates a SHA256 hash of the secret for storage
+func hashSecret(secret string) string {
+	hash := sha256.Sum256([]byte(secret))
+	return base64.StdEncoding.EncodeToString(hash[:])
 }
