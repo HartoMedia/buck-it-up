@@ -46,29 +46,51 @@ func New(db *sql.DB) *Router {
 	r.mux.Use(middleware.Recoverer)
 	r.mux.Use(middleware.Compress(5)) // Enable gzip compression with compression level 5
 
-	// Misc routes
+	//Misc routes - no auth required
 	r.mux.Get("/health", r.health)
-	r.mux.Get("/echo", r.echo) // echo only supports GET body for parity; could be POST
+	r.mux.Get("/echo", r.echo)
 
-	// Bucket routes at root
+	// Bucket routes at root (admin only - will be protected later)
 	// LIST / -> list all buckets
 	r.mux.MethodFunc(MethodList, "/", r.listBuckets)
 	// POST / -> add a new bucket
 	r.mux.Post("/", r.createBucket)
-	// GET /{name} -> get single bucket by name
-	r.mux.Get("/{name}", r.getBucketByName)
-	// DELETE /{name} -> delete bucket by name
-	r.mux.Delete("/{name}", r.deleteBucketByName)
 
-	// Object or Bucket interal routes
-	r.mux.MethodFunc(MethodList, "/{bucketName}", r.listBucketContent)
-	// POST /{bucketName}/upload -> upload object to bucket
-	r.mux.Post("/{bucketName}/upload", r.uploadObjectToBucket)
-	// GET /{bucketName}/{objectKey} -> get single object metadata + content
-	r.mux.Get("/{bucketName}/*", r.getObjectByKey)
-	r.mux.Delete("/{bucketName}/*", r.deleteObjectByKey)
-	r.mux.Get("/{bucketName}/metadata/*", r.getObjectByKeyOnlyMetadata)
-	r.mux.Get("/{bucketName}/content/*", r.getObjectByKeyOnlyContent)
+	// Protected bucket routes - read only access
+	r.mux.Group(func(readOnly chi.Router) {
+		readOnly.Use(r.AuthMiddleware(AuthLevelReadOnly))
+		// GET /{name} -> get single bucket by name (only for their bucket)
+		readOnly.Get("/{name}", r.getBucketByName)
+	})
+
+	// Protected bucket content routes - read only access
+	r.mux.Group(func(readOnly chi.Router) {
+		readOnly.Use(r.AuthMiddleware(AuthLevelReadOnly))
+		// LIST /{bucketName} -> list bucket content
+		readOnly.MethodFunc(MethodList, "/{bucketName}", r.listBucketContent)
+		// GET /{bucketName}/all/* -> get object metadata + content
+		readOnly.Get("/{bucketName}/all/*", r.getObjectByKey)
+		// GET /{bucketName}/metadata/* -> get object metadata only
+		readOnly.Get("/{bucketName}/metadata/*", r.getObjectByKeyOnlyMetadata)
+		// GET /{bucketName}/content/* -> get object content only
+		readOnly.Get("/{bucketName}/content/*", r.getObjectByKeyOnlyContent)
+	})
+
+	// Protected object routes - read/write access
+	r.mux.Group(func(readWrite chi.Router) {
+		readWrite.Use(r.AuthMiddleware(AuthLevelReadWrite))
+		// POST /{bucketName}/upload -> upload object to bucket
+		readWrite.Post("/{bucketName}/upload", r.uploadObjectToBucket)
+		// DELETE /{bucketName}/* -> delete object by key
+		readWrite.Delete("/{bucketName}/*", r.deleteObjectByKey)
+	})
+
+	// Protected bucket routes - all access (bucket deletion)
+	r.mux.Group(func(all chi.Router) {
+		all.Use(r.AuthMiddleware(AuthLevelAll))
+		// DELETE /{name} -> delete bucket by name
+		all.Delete("/{name}", r.deleteBucketByName)
+	})
 
 	return r
 }
@@ -292,7 +314,7 @@ func (r *Router) getObjectByKey(w nethttp.ResponseWriter, req *nethttp.Request) 
 		return
 	}
 	// Remaining path after bucketName is the object key (chi wildcard *) but the objectKey can contain slashes
-	objectKey := strings.TrimPrefix(req.URL.Path, "/"+bucketName+"/")
+	objectKey := strings.TrimPrefix(req.URL.Path, "/"+bucketName+"/all/")
 	objectKey = strings.TrimSpace(objectKey)
 	if objectKey == "" || strings.Contains(objectKey, "\x00") { // basic validation
 		nethttp.Error(w, "invalid object key", nethttp.StatusBadRequest)
