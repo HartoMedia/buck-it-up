@@ -65,6 +65,12 @@
         .file-input-label { display: block; padding: 10px; background: #f8f9fa; border: 2px dashed #e0e0e0; border-radius: 6px; text-align: center; cursor: pointer; transition: all 0.3s; }
         .file-input-label:hover { border-color: #667eea; background: #f0f0ff; }
         .file-selected { margin-top: 10px; color: #667eea; font-size: 14px; }
+        .folder-row td { font-weight: 600; background: #fafafa; }
+        .folder-toggle { cursor: pointer; display: inline-block; width: 18px; text-align: center; user-select: none; }
+        .folder-name { color: #444; }
+        .folder-meta { color: #777; font-size: 12px; margin-left: 8px; }
+        .object-name { color: #222; }
+        .indent { display: inline-block; }
     </style>
 </head>
 <body>
@@ -206,24 +212,140 @@
                 document.getElementById('loading').textContent = 'Error loading objects: ' + err.message;
             }
         }
-        function displayObjects(objects) {
-            const loading = document.getElementById('loading');
-            const table = document.getElementById('objectsTable');
-            const emptyState = document.getElementById('emptyState');
+        let objectTree = null;
+        let folderOpenState = {}; // path -> bool
+
+        function buildTree(objects) {
+            const root = { name: '', children: {}, object: null }; // object for leaf nodes
+            for (const obj of objects) {
+                const key = obj.object_key;
+                const parts = key.split('/');
+                let node = root;
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    if (!node.children[part]) {
+                        node.children[part] = { name: part, children: {}, object: null, fullPath: parts.slice(0, i + 1).join('/') };
+                        // initialize open state for folder nodes (not leaves)
+                        if (i < parts.length - 1) {
+                            folderOpenState[node.children[part].fullPath] = folderOpenState[node.children[part].fullPath] ?? true;
+                        }
+                    }
+                    node = node.children[part];
+                    if (i === parts.length - 1) {
+                        node.object = obj; // leaf object
+                    }
+                }
+            }
+            return root;
+        }
+
+        function renderTree(root) {
             const tbody = document.getElementById('objectsBody');
-            loading.style.display = 'none';
-            if (!objects || objects.length === 0) {
+            const table = document.getElementById('objectsTable');
+            const loading = document.getElementById('loading');
+            const emptyState = document.getElementById('emptyState');
+
+            // If root has no children
+            if (!root || Object.keys(root.children).length === 0) {
+                loading.style.display = 'none';
                 emptyState.style.display = 'block';
                 table.style.display = 'none';
                 return;
             }
+            loading.style.display = 'none';
             emptyState.style.display = 'none';
             table.style.display = 'block';
-            tbody.innerHTML = objects.map(obj => {
+
+            const rows = [];
+
+            function walk(node, depth, parentOpen) {
+                const isRoot = depth === 0 && node.name === '';
+                // Sort folders then files alphabetically
+                const entries = Object.values(node.children).sort((a,b)=>{
+                    const aFolder = Object.keys(a.children).length > 0 || !a.object;
+                    const bFolder = Object.keys(b.children).length > 0 || !b.object;
+                    if (aFolder !== bFolder) return aFolder ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                });
+                for (const child of entries) {
+                    const childIsFolder = (Object.keys(child.children).length > 0 && (child.object == null || Object.keys(child.children).length > 0));
+                    const path = child.fullPath;
+                    const open = folderOpenState[path];
+                    const visible = parentOpen; // ancestor must be open
+
+                    if (childIsFolder) {
+                        if (visible) {
+                            const itemCount = countDescendantObjects(child);
+                            rows.push(renderFolderRow(child.name, path, depth, open, itemCount));
+                        }
+                        // Recurse only if folder is open (to build rows for children that are visible)
+                        walk(child, depth + 1, visible && open);
+                    } else {
+                        // Leaf object
+                        if (visible) {
+                            rows.push(renderObjectRow(child.object, depth));
+                        }
+                    }
+                }
+            }
+
+            function countDescendantObjects(node) {
+                let count = 0;
+                function recurse(n) {
+                    for (const k of Object.keys(n.children)) {
+                        const c = n.children[k];
+                        if (c.object) count++;
+                        recurse(c);
+                    }
+                }
+                recurse(node);
+                return count;
+            }
+
+            function renderFolderRow(name, path, depth, open, itemCount) {
+                const toggle = open ? '▼' : '▶';
+                const indentPx = depth * 18;
+                return `<tr class="folder-row" data-path="${escapeHtml(path)}" data-open="${open}" data-depth="${depth}">
+                    <td style="padding-left:${indentPx}px"><span class="folder-toggle" onclick="toggleFolder('${escapeJs(path)}')">${toggle}</span> 📁 <span class="folder-name">${escapeHtml(name)}</span><span class="folder-meta">(${itemCount} objects)</span></td>
+                    <td colspan="4"></td>
+                </tr>`;
+            }
+
+            function renderObjectRow(obj, depth) {
+                const indentPx = depth * 18;
                 const createdDate = new Date(obj.created_at * 1000).toLocaleString();
                 const escapedKey = obj.object_key.replace(/'/g, "\\'");
-                return '<tr><td><strong>' + obj.object_key + '</strong></td><td class="size">' + formatBytes(obj.size) + '</td><td>' + (obj.content_type || 'N/A') + '</td><td>' + createdDate + '</td><td><div class="actions"><button class="btn btn-primary btn-sm" onclick="viewObject(\'' + escapedKey + '\')">View</button><button class="btn btn-sm" onclick="downloadObject(\'' + escapedKey + '\')">Download</button><button class="btn btn-danger btn-sm" onclick="deleteObject(\'' + escapedKey + '\')">Delete</button></div></td></tr>';
-            }).join('');
+                return `<tr class="object-row" data-key="${escapeHtml(obj.object_key)}" data-depth="${depth}">
+                    <td style="padding-left:${indentPx}px">📄 <span class="object-name">${escapeHtml(obj.object_key.split('/').pop())}</span></td>
+                    <td class="size">${formatBytes(obj.size)}</td>
+                    <td>${obj.content_type || 'N/A'}</td>
+                    <td>${createdDate}</td>
+                    <td><div class="actions">
+                        <button class="btn btn-primary btn-sm" onclick="viewObject('${escapedKey}')">View</button>
+                        <button class="btn btn-sm" onclick="downloadObject('${escapedKey}')">Download</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteObject('${escapedKey}')">Delete</button>
+                    </div></td>
+                </tr>`;
+            }
+
+            function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+            function escapeJs(s) { return s.replace(/['"\\]/g, c => '\\' + c); }
+
+            // Walk starting from root (root is implicitly visible)
+            walk(root, 0, true);
+            tbody.innerHTML = rows.join('');
+        }
+
+        function toggleFolder(path) {
+            folderOpenState[path] = !folderOpenState[path];
+            renderTree(objectTree);
+        }
+
+        function displayObjects(objects) {
+            // Build tree and render hierarchical view
+            folderOpenState = folderOpenState || {}; // preserve existing open states across refreshes
+            objectTree = buildTree(objects);
+            renderTree(objectTree);
         }
         function toggleUploadMethod() {
             const method = document.querySelector('input[name="uploadMethod"]:checked').value;
