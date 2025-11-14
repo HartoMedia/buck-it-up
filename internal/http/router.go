@@ -373,7 +373,7 @@ func (r *Router) getObjectByKey(w nethttp.ResponseWriter, req *nethttp.Request) 
 		Content        string `json:"content"`
 	}{
 		Object:  obj,
-		Content: string(data), // raw content; could base64 encode if binary
+		Content: base64.StdEncoding.EncodeToString(data),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -500,9 +500,10 @@ func (r *Router) uploadObjectToBucket(w nethttp.ResponseWriter, req *nethttp.Req
 
 	// Parse JSON body
 	var body struct {
-		ObjectKey   string `json:"object_key"`
-		Content     string `json:"content"`
-		ContentType string `json:"content_type"`
+		ObjectKey     string `json:"object_key"`
+		Content       string `json:"content"`
+		ContentType   string `json:"content_type"`
+		Base64Encoded bool   `json:"base64_encoded,omitempty"` // Optional flag to indicate content is base64
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		nethttp.Error(w, "invalid json", nethttp.StatusBadRequest)
@@ -528,7 +529,18 @@ func (r *Router) uploadObjectToBucket(w nethttp.ResponseWriter, req *nethttp.Req
 	}
 
 	// Create object record first to get the object ID
-	contentBytes := []byte(body.Content)
+	var contentBytes []byte
+	if body.Base64Encoded {
+		// Decode base64 content
+		contentBytes, err = base64.StdEncoding.DecodeString(body.Content)
+		if err != nil {
+			nethttp.Error(w, "invalid base64 content", nethttp.StatusBadRequest)
+			return
+		}
+	} else {
+		// Use raw content
+		contentBytes = []byte(body.Content)
+	}
 	contentType := strings.TrimSpace(body.ContentType)
 	if contentType == "" {
 		contentType = "application/octet-stream"
