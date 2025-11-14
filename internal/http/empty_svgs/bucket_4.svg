@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bucketGrad4" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#d97706;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Box open -->
+  <polygon points="100,60 150,80 150,140 100,160 50,140 50,80" fill="url(#bucketGrad4)" stroke="#92400e" stroke-width="3"/>
+  <polygon points="100,60 150,80 100,100 50,80" fill="#fbbf24" stroke="#92400e" stroke-width="3"/>
+  <line x1="100" y1="100" x2="100" y2="160" stroke="#92400e" stroke-width="3"/>
+  <!-- Stars inside -->
+  <polygon points="100,110 102,116 108,116 103,120 105,126 100,122 95,126 97,120 92,116 98,116" fill="#fef3c7" opacity="0.7"/>
+  <polygon points="85,120 87,124 91,124 88,127 89,131 85,128 81,131 82,127 79,124 83,124" fill="#fef3c7" opacity="0.6"/>
+  <polygon points="115,125 117,129 121,129 118,132 119,136 115,133 111,136 112,132 109,129 113,129" fill="#fef3c7" opacity="0.6"/>
+</svg>
+

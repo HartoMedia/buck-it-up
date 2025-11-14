@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bucketGrad5" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ec4899;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#be185d;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Database/Storage icon -->
+  <ellipse cx="100" cy="70" rx="50" ry="15" fill="#ec4899" stroke="#831843" stroke-width="3"/>
+  <rect x="50" y="70" width="100" height="60" fill="url(#bucketGrad5)"/>
+  <path d="M 50 70 L 50 130" stroke="#831843" stroke-width="3"/>
+  <path d="M 150 70 L 150 130" stroke="#831843" stroke-width="3"/>
+  <ellipse cx="100" cy="130" rx="50" ry="15" fill="#ec4899" stroke="#831843" stroke-width="3"/>
+  <ellipse cx="100" cy="100" rx="50" ry="15" fill="none" stroke="#fce7f3" stroke-width="2" opacity="0.5"/>
+  <!-- Empty indicator -->
+  <circle cx="100" cy="100" r="20" fill="none" stroke="#fce7f3" stroke-width="2.5" stroke-dasharray="3,3"/>
+  <text x="100" y="108" text-anchor="middle" font-size="24" font-weight="bold" fill="#fce7f3">0</text>
+</svg>
+

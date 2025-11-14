@@ -7,28 +7,35 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; min-height: 100vh; }
-        .navbar { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .navbar { background: linear-gradient(135deg, #5b6fd8 0%, #6b4a9e 100%); color: white; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
         .navbar h1 { font-size: 24px; }
         .navbar .user-info { display: flex; gap: 15px; align-items: center; }
-        .btn { padding: 10px 20px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; cursor: pointer; transition: all 0.3s; text-decoration: none; display: inline-block; font-size: 14px; }
-        .btn:hover { background: rgba(255,255,255,0.3); }
-        .btn-primary { background: white; color: #667eea; border: none; }
+        .btn { padding: 10px 20px; background: rgba(255,255,255,0.25); color: white; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; cursor: pointer; transition: all 0.3s; text-decoration: none; display: inline-block; font-size: 14px; font-weight: 500; }
+        .btn:hover { background: rgba(255,255,255,0.35); }
+        .btn:focus { outline: 2px solid white; outline-offset: 2px; }
+        .btn-primary { background: white; color: #5b6fd8; border: none; font-weight: 600; }
         .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
-        .btn-danger { background: #e74c3c; border: none; color: white; }
-        .btn-danger:hover { background: #c0392b; }
+        .btn-primary:focus { outline: 2px solid #5b6fd8; outline-offset: 2px; }
+        .btn-danger { background: #dc2626; border: none; color: white; font-weight: 600; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-danger:focus { outline: 2px solid #dc2626; outline-offset: 2px; }
         .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn-copy { background: #0891b2; border: none; color: white; font-weight: 600; }
+        .btn-copy:hover { background: #0e7490; }
+        .btn-copy:focus { outline: 2px solid #0891b2; outline-offset: 2px; }
         .container { max-width: 1400px; margin: 40px auto; padding: 0 20px; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .header h2 { color: #333; }
-        .breadcrumb { color: #666; margin-bottom: 20px; }
-        .breadcrumb a { color: #667eea; text-decoration: none; }
+        .header h2 { color: #1f2937; }
+        .breadcrumb { color: #6b7280; margin-bottom: 20px; }
+        .breadcrumb a { color: #5b6fd8; text-decoration: none; font-weight: 500; }
         .breadcrumb a:hover { text-decoration: underline; }
+        .breadcrumb a:focus { outline: 2px solid #5b6fd8; outline-offset: 2px; border-radius: 2px; }
         .objects-table { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
         table { width: 100%; border-collapse: collapse; }
         thead { background: #f8f9fa; }
-        th { padding: 15px; text-align: left; font-weight: 600; color: #333; border-bottom: 2px solid #e0e0e0; }
-        td { padding: 15px; border-bottom: 1px solid #e0e0e0; }
-        tr:hover { background: #f8f9fa; }
+        th { padding: 15px; text-align: left; font-weight: 600; color: #1f2937; border-bottom: 2px solid #e5e7eb; }
+        td { padding: 15px; border-bottom: 1px solid #e5e7eb; color: #374151; }
+        tr:hover { background: #f9fafb; }
         .actions { display: flex; gap: 8px; }
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
         .modal.show { display: flex; }
@@ -41,45 +48,49 @@
             height: 32px;
             border: none;
             border-radius: 50%;
-            background: #f0f0f0;
-            color: #333;
+            background: #f3f4f6;
+            color: #1f2937;
             font-size: 18px;
             line-height: 32px;
             text-align: center;
             cursor: pointer;
         }
-        .modal-close:hover { background: #e2e2ff; color: #4b5bdc; }
+        .modal-close:hover { background: #e5e7eb; color: #5b6fd8; }
+        .modal-close:focus { outline: 2px solid #5b6fd8; outline-offset: 2px; }
         .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; }
-        .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; font-family: inherit; }
+        .form-group label { display: block; margin-bottom: 8px; color: #1f2937; font-weight: 500; }
+        .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #d1d5db; border-radius: 6px; font-size: 14px; font-family: inherit; color: #1f2937; }
         .form-group textarea { min-height: 150px; font-family: 'Courier New', monospace; }
-        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #667eea; }
+        .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #5b6fd8; box-shadow: 0 0 0 3px rgba(91, 111, 216, 0.1); }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-        .empty-state { text-align: center; padding: 60px 20px; color: #999; background: white; border-radius: 8px; }
-        .empty-state h3 { font-size: 24px; margin-bottom: 10px; }
-        .loading { text-align: center; padding: 40px; color: #999; }
-        .size { color: #666; font-size: 13px; }
-        .content-preview { background: #f8f9fa; padding: 15px; border-radius: 6px; max-height: 300px; overflow: auto; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #6b7280; background: white; border-radius: 8px; }
+        .empty-state svg { margin: 0 auto 20px; display: block; }
+        .empty-state h3 { font-size: 24px; margin-bottom: 10px; color: #374151; }
+        .empty-state p { font-size: 16px; color: #6b7280; }
+        .empty-state-msg { font-size: 16px; margin-top: 8px; color: #4b5563; font-style: italic; }
+        .loading { text-align: center; padding: 40px; color: #6b7280; }
+        .size { color: #6b7280; font-size: 13px; }
+        .content-preview { background: #f9fafb; padding: 15px; border-radius: 6px; max-height: 300px; overflow: auto; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; border: 1px solid #e5e7eb; }
         .file-input-wrapper { position: relative; display: inline-block; width: 100%; }
         .file-input-wrapper input[type="file"] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
-        .file-input-label { display: block; padding: 10px; background: #f8f9fa; border: 2px dashed #e0e0e0; border-radius: 6px; text-align: center; cursor: pointer; transition: all 0.3s; }
-        .file-input-label:hover { border-color: #667eea; background: #f0f0ff; }
-        .file-selected { margin-top: 10px; color: #667eea; font-size: 14px; }
+        .file-input-label { display: block; padding: 10px; background: #f9fafb; border: 2px dashed #d1d5db; border-radius: 6px; text-align: center; cursor: pointer; transition: all 0.3s; color: #6b7280; }
+        .file-input-label:hover { border-color: #5b6fd8; background: #eff6ff; color: #5b6fd8; }
+        .file-selected { margin-top: 10px; color: #5b6fd8; font-size: 14px; font-weight: 500; }
         .folder-row td { font-weight: 600; background: #fafafa; }
         .folder-toggle { cursor: pointer; display: inline-block; width: 18px; text-align: center; user-select: none; }
-        .folder-name { color: #444; }
-        .folder-meta { color: #777; font-size: 12px; margin-left: 8px; }
-        .object-name { color: #222; }
+        .folder-name { color: #1f2937; }
+        .folder-meta { color: #6b7280; font-size: 12px; margin-left: 8px; }
+        .object-name { color: #1f2937; font-weight: 500; }
         .indent { display: inline-block; }
         .access-keys-section { background: white; border-radius: 8px; padding: 25px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .access-keys-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .access-keys-header h3 { margin: 0; color: #333; }
+        .access-keys-header h3 { margin: 0; color: #1f2937; }
         .access-keys-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
-        .access-key-card { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px; }
-        .access-key-card h4 { margin: 0 0 10px 0; color: #667eea; font-size: 16px; text-transform: capitalize; }
+        .access-key-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; }
+        .access-key-card h4 { margin: 0 0 10px 0; color: #5b6fd8; font-size: 16px; text-transform: capitalize; }
         .access-key-field { margin-bottom: 10px; }
-        .access-key-field label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600; }
-        .access-key-field .value { font-family: 'Courier New', monospace; font-size: 12px; background: white; padding: 8px; border-radius: 4px; border: 1px solid #ddd; word-break: break-all; }
+        .access-key-field label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; font-weight: 600; }
+        .access-key-field .value { font-family: 'Courier New', monospace; font-size: 12px; background: white; padding: 8px; border-radius: 4px; border: 1px solid #e5e7eb; word-break: break-all; color: #1f2937; }
         .access-key-card .actions { margin-top: 12px; }
     </style>
 </head>
@@ -124,8 +135,10 @@
             </table>
         </div>
         <div id="emptyState" class="empty-state" style="display: none;">
+            <img src="/ui/empty.svg" alt="Empty bucket illustration" width="220" height="220" id="emptyStateImage">
             <h3>No objects yet</h3>
             <p>Upload your first object to get started</p>
+            <div id="emptyMessage" class="empty-state-msg"></div>
         </div>
     </div>
     <div id="uploadModal" class="modal">
@@ -412,7 +425,16 @@
                 const response = await fetch('/' + encodeURIComponent(currentBucket), { method: 'LIST', headers: { 'Authorization': auth } });
                 if (response.status === 401) { logout(); return; }
                 if (!response.ok) throw new Error('Failed to load objects');
-                const objects = await response.json();
+                let objects = await response.json();
+                // Normalize possible null / non-array responses to empty array
+                if (!Array.isArray(objects)) {
+                    // Some APIs might wrap in an object like {objects: [...]} - try to unwrap
+                    if (objects && Array.isArray(objects.objects)) {
+                        objects = objects.objects;
+                    } else {
+                        objects = [];
+                    }
+                }
                 displayObjects(objects);
             } catch (err) {
                 console.error('Error loading objects:', err);
@@ -423,6 +445,8 @@
         let folderOpenState = {}; // path -> bool
 
         function buildTree(objects) {
+            // Defensive: ensure iterable
+            if (!Array.isArray(objects)) objects = [];
             const root = { name: '', children: {}, object: null }; // object for leaf nodes
             for (const obj of objects) {
                 const key = obj.object_key;
@@ -432,14 +456,13 @@
                     const part = parts[i];
                     if (!node.children[part]) {
                         node.children[part] = { name: part, children: {}, object: null, fullPath: parts.slice(0, i + 1).join('/') };
-                        // initialize open state for folder nodes (not leaves)
                         if (i < parts.length - 1) {
                             folderOpenState[node.children[part].fullPath] = folderOpenState[node.children[part].fullPath] ?? true;
                         }
                     }
                     node = node.children[part];
                     if (i === parts.length - 1) {
-                        node.object = obj; // leaf object
+                        node.object = obj;
                     }
                 }
             }
@@ -457,6 +480,9 @@
                 loading.style.display = 'none';
                 emptyState.style.display = 'block';
                 table.style.display = 'none';
+                // Bust image cache to encourage new random SVG (adds dummy query param)
+                const img = document.getElementById('emptyStateImage');
+                if (img) img.src = '/ui/empty.svg?rand=' + Date.now();
                 return;
             }
             loading.style.display = 'none';
@@ -528,6 +554,7 @@
                     <td>${obj.content_type || 'N/A'}</td>
                     <td>${createdDate}</td>
                     <td><div class="actions">
+                        <button class="btn btn-copy btn-sm" onclick="copyObjectKey('${escapedKey}')" title="Copy full object key">📋 Copy Key</button>
                         <button class="btn btn-primary btn-sm" onclick="viewObject('${escapedKey}')">View</button>
                         <button class="btn btn-sm" onclick="downloadObject('${escapedKey}')">Download</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteObject('${escapedKey}')">Delete</button>
@@ -698,6 +725,41 @@
             } catch (err) {
                 alert('Error deleting object: ' + err.message);
             }
+        }
+        function copyObjectKey(objectKey) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(objectKey).then(() => {
+                    // Show a temporary success message
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = '✓ Copied!';
+                    btn.style.background = '#059669';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                    fallbackCopyKey(objectKey);
+                });
+            } else {
+                fallbackCopyKey(objectKey);
+            }
+        }
+        function fallbackCopyKey(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                alert('Object key copied to clipboard: ' + text);
+            } catch (err) {
+                alert('Failed to copy. Object key: ' + text);
+            }
+            document.body.removeChild(textarea);
         }
         function bindModalDismiss(modalEl, hideFn) {
             modalEl.addEventListener('click', function(e) {

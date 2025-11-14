@@ -54,6 +54,7 @@ func New(db *sql.DB) *Router {
 	r.mux.Get("/ui/login", r.uiLogin)
 	r.mux.Get("/ui/dashboard", r.uiDashboard)
 	r.mux.Get("/ui/bucket/*", r.uiBucketView)
+	r.mux.Get("/ui/empty.svg", r.uiRandomEmptySVG)
 	// Redirect /ui to /ui/login
 	r.mux.Get("/ui", func(w nethttp.ResponseWriter, req *nethttp.Request) {
 		nethttp.Redirect(w, req, "/ui/login", nethttp.StatusFound)
