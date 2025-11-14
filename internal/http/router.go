@@ -221,12 +221,7 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 		models.RoleAll,
 	}
 
-	type AccessKeyWithSecret struct {
-		*models.AccessKey
-		Secret string `json:"secret"`
-	}
-
-	accessKeys := make([]AccessKeyWithSecret, 0, 3)
+	accessKeys := make([]*models.AccessKeyWithSecretResponse, 0, 3)
 
 	for _, role := range roles {
 		keyID, secret, err := r.generateAccessKey()
@@ -257,19 +252,16 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 		}
 		ak.ID = akID
 
-		accessKeys = append(accessKeys, AccessKeyWithSecret{
-			AccessKey: ak,
-			Secret:    secret,
-		})
+		accessKeys = append(accessKeys, ak.ToResponseWithSecret(secret))
 	}
 
 	// Return bucket with access keys
 	response := struct {
-		*models.Bucket
-		AccessKeys []AccessKeyWithSecret `json:"access_keys"`
+		*models.BucketResponse
+		AccessKeys []*models.AccessKeyWithSecretResponse `json:"access_keys"`
 	}{
-		Bucket:     bucket,
-		AccessKeys: accessKeys,
+		BucketResponse: bucket.ToResponse(),
+		AccessKeys:     accessKeys,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

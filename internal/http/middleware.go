@@ -117,9 +117,9 @@ func (r *Router) AuthMiddleware(level AuthLevel) func(nethttp.Handler) nethttp.H
 
 			// Store auth context in request context
 			authCtx := &AuthContext{
-				AccessKey: accessKey,
-				BucketID:  accessKey.BucketID,
-				Role:      accessKey.Role,
+				KeyID:    accessKey.KeyID,
+				BucketID: accessKey.BucketID,
+				Role:     accessKey.Role,
 			}
 			ctx = SetAuthContext(ctx, authCtx)
 

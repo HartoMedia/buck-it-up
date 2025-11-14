@@ -11,9 +11,9 @@ const authContextKey contextKey = "auth"
 
 // AuthContext holds the authenticated access key information
 type AuthContext struct {
-	AccessKey *models.AccessKey
-	BucketID  int64
-	Role      models.AccessKeyRole
+	KeyID    string               `json:"key_id"`
+	BucketID int64                `json:"bucket_id"`
+	Role     models.AccessKeyRole `json:"role"`
 }
 
 // SetAuthContext stores the auth context in the request context
