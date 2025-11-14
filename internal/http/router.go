@@ -40,6 +40,7 @@ func New(db *sql.DB) *Router {
 	r.mux.Use(middleware.RealIP)
 	r.mux.Use(middleware.Logger)
 	r.mux.Use(middleware.Recoverer)
+	r.mux.Use(middleware.Compress(5)) // Enable gzip compression with compression level 5
 
 	// Misc routes
 	r.mux.Get("/health", r.health)
@@ -59,6 +60,9 @@ func New(db *sql.DB) *Router {
 	r.mux.MethodFunc(MethodList, "/{bucketName}", r.listBucketContent)
 	// GET /{bucketName}/{objectKey} -> get single object metadata + content
 	r.mux.Get("/{bucketName}/*", r.getObjectByKey)
+	r.mux.Get("/{bucketName}/metadata/*", r.getObjectByKeyOnlyMetadata)
+	r.mux.Get("/{bucketName}/content/*", r.getObjectByKeyOnlyContent)
+	r.mux.Post("/{bucketName}", r.uploadObjectToBucket)
 
 	return r
 }
@@ -285,4 +289,114 @@ func (r *Router) getObjectByKey(w nethttp.ResponseWriter, req *nethttp.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(nethttp.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (r *Router) getObjectByKeyOnlyMetadata(w nethttp.ResponseWriter, req *nethttp.Request) {
+	bucketName := chi.URLParam(req, "bucketName")
+	if bucketName == "" || strings.Contains(bucketName, "/") {
+		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
+		return
+	}
+	// Remaining path after bucketName/metadata/ is the object key
+	objectKey := strings.TrimPrefix(req.URL.Path, "/"+bucketName+"/metadata/")
+	objectKey = strings.TrimSpace(objectKey)
+	if objectKey == "" || strings.Contains(objectKey, "\x00") {
+		nethttp.Error(w, "invalid object key", nethttp.StatusBadRequest)
+		return
+	}
+
+	ctx := req.Context()
+	bStore := models.NewBucketStore(r.db)
+	bucket, err := bStore.GetBucketByName(ctx, bucketName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			nethttp.NotFound(w, req)
+			return
+		}
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+
+	oStore := models.NewObjectStore(r.db)
+	obj, err := oStore.GetObject(ctx, bucket.ID, objectKey)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			nethttp.NotFound(w, req)
+			return
+		}
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(nethttp.StatusOK)
+	_ = json.NewEncoder(w).Encode(obj)
+}
+
+func (r *Router) getObjectByKeyOnlyContent(w nethttp.ResponseWriter, req *nethttp.Request) {
+	bucketName := chi.URLParam(req, "bucketName")
+	if bucketName == "" || strings.Contains(bucketName, "/") {
+		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
+		return
+	}
+	// Remaining path after bucketName/content/ is the object key
+	objectKey := strings.TrimPrefix(req.URL.Path, "/"+bucketName+"/content/")
+	objectKey = strings.TrimSpace(objectKey)
+	if objectKey == "" || strings.Contains(objectKey, "\x00") {
+		nethttp.Error(w, "invalid object key", nethttp.StatusBadRequest)
+		return
+	}
+
+	ctx := req.Context()
+	bStore := models.NewBucketStore(r.db)
+	bucket, err := bStore.GetBucketByName(ctx, bucketName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			nethttp.NotFound(w, req)
+			return
+		}
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+
+	oStore := models.NewObjectStore(r.db)
+	obj, err := oStore.GetObject(ctx, bucket.ID, objectKey)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			nethttp.NotFound(w, req)
+			return
+		}
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+
+	// Read object content from its file_path
+	contentPath := obj.FilePath
+	// Security: ensure file path is inside expected bucket directory
+	expectedPrefix := filepath.Join("data", "buckets", strconv.FormatInt(bucket.ID, 10), "objects")
+	// Normalize both paths for comparison (handle forward/backward slashes)
+	normalizedContentPath := filepath.Clean(contentPath)
+	normalizedExpectedPrefix := filepath.Clean(expectedPrefix)
+	if !strings.HasPrefix(normalizedContentPath, normalizedExpectedPrefix) {
+		nethttp.Error(w, "invalid stored path", nethttp.StatusInternalServerError)
+		return
+	}
+	data, err := os.ReadFile(contentPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			nethttp.Error(w, "object file missing", nethttp.StatusInternalServerError)
+			return
+		}
+		nethttp.Error(w, "failed to read object", nethttp.StatusInternalServerError)
+		return
+	}
+
+	// Set content type from metadata if available
+	if obj.ContentType != "" {
+		w.Header().Set("Content-Type", obj.ContentType)
+	} else {
+		w.Header().Set("Content-Type", "application/octet-stream")
+	}
+	w.WriteHeader(nethttp.StatusOK)
+	_, _ = w.Write(data)
 }
