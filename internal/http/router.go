@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -58,11 +59,12 @@ func New(db *sql.DB) *Router {
 
 	// Object or Bucket interal routes
 	r.mux.MethodFunc(MethodList, "/{bucketName}", r.listBucketContent)
+	// POST /{bucketName}/upload -> upload object to bucket
+	r.mux.Post("/{bucketName}/upload", r.uploadObjectToBucket)
 	// GET /{bucketName}/{objectKey} -> get single object metadata + content
 	r.mux.Get("/{bucketName}/*", r.getObjectByKey)
 	r.mux.Get("/{bucketName}/metadata/*", r.getObjectByKeyOnlyMetadata)
 	r.mux.Get("/{bucketName}/content/*", r.getObjectByKeyOnlyContent)
-	r.mux.Post("/{bucketName}", r.uploadObjectToBucket)
 
 	return r
 }
@@ -399,4 +401,130 @@ func (r *Router) getObjectByKeyOnlyContent(w nethttp.ResponseWriter, req *nethtt
 	}
 	w.WriteHeader(nethttp.StatusOK)
 	_, _ = w.Write(data)
+}
+
+func (r *Router) uploadObjectToBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
+	bucketName := chi.URLParam(req, "bucketName")
+	if bucketName == "" || strings.Contains(bucketName, "/") {
+		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
+		return
+	}
+
+	// Parse JSON body
+	var body struct {
+		ObjectKey   string `json:"object_key"`
+		Content     string `json:"content"`
+		ContentType string `json:"content_type"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		nethttp.Error(w, "invalid json", nethttp.StatusBadRequest)
+		return
+	}
+
+	objectKey := strings.TrimSpace(body.ObjectKey)
+	if objectKey == "" || strings.Contains(objectKey, "\x00") {
+		nethttp.Error(w, "invalid object key", nethttp.StatusBadRequest)
+		return
+	}
+
+	ctx := req.Context()
+	bStore := models.NewBucketStore(r.db)
+	bucket, err := bStore.GetBucketByName(ctx, bucketName)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			nethttp.NotFound(w, req)
+			return
+		}
+		nethttp.Error(w, "internal error", nethttp.StatusInternalServerError)
+		return
+	}
+
+	// Create object record first to get the object ID
+	contentBytes := []byte(body.Content)
+	contentType := strings.TrimSpace(body.ContentType)
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	// Calculate checksum (simple approach - could use SHA256 or MD5)
+	checksum := fmt.Sprintf("%d", len(contentBytes))
+
+	// Create the object in DB (we need the ID to determine the file path)
+	obj := &models.Object{
+		BucketID:    bucket.ID,
+		ObjectKey:   objectKey,
+		FilePath:    "", // Will be set after we get the ID
+		Size:        int64(len(contentBytes)),
+		ContentType: contentType,
+		Checksum:    checksum,
+		CreatedAt:   time.Now().Unix(),
+	}
+
+	oStore := models.NewObjectStore(r.db)
+	objectID, err := oStore.PutObject(ctx, obj)
+	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if strings.Contains(errMsg, "unique") {
+			nethttp.Error(w, "object already exists", nethttp.StatusConflict)
+			return
+		}
+		nethttp.Error(w, "failed to create object", nethttp.StatusInternalServerError)
+		return
+	}
+
+	// Now we have the object ID, determine the file path
+	obj.ID = objectID
+
+	// Use storage helper to ensure directory exists and get file path
+	bucketDir, err := r.ensureBucketObjectsDir(bucket.ID)
+	if err != nil {
+		// Rollback: delete the DB record
+		_ = oStore.DeleteObject(ctx, bucket.ID, objectKey)
+		nethttp.Error(w, "failed to create storage directory", nethttp.StatusInternalServerError)
+		return
+	}
+
+	filePath := filepath.Join(bucketDir, strconv.FormatInt(objectID, 10))
+
+	// Write content to file
+	if err := os.WriteFile(filePath, contentBytes, 0o644); err != nil {
+		// Rollback: delete the DB record
+		_ = oStore.DeleteObject(ctx, bucket.ID, objectKey)
+		nethttp.Error(w, "failed to write object file", nethttp.StatusInternalServerError)
+		return
+	}
+
+	// Update the object record with the file path
+	obj.FilePath = filePath
+	if err := r.updateObjectFilePath(ctx, objectID, filePath); err != nil {
+		// Rollback: delete file and DB record
+		_ = os.Remove(filePath)
+		_ = oStore.DeleteObject(ctx, bucket.ID, objectKey)
+		nethttp.Error(w, "failed to update object metadata", nethttp.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(nethttp.StatusCreated)
+	_ = json.NewEncoder(w).Encode(obj)
+}
+
+// Helper to ensure bucket objects directory exists
+func (r *Router) ensureBucketObjectsDir(bucketID int64) (string, error) {
+	dataRoot := "data"
+	if dr := os.Getenv("BUCK_DATA_PATH"); dr != "" {
+		dataRoot = dr
+	}
+	p := filepath.Join(dataRoot, "buckets", strconv.FormatInt(bucketID, 10), "objects")
+	return p, os.MkdirAll(p, 0o755)
+}
+
+// Helper to update object file path in database
+func (r *Router) updateObjectFilePath(ctx context.Context, objectID int64, filePath string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE objects
+		SET file_path = ?
+		WHERE id = ?
+	`, filePath, objectID)
+	return err
 }
