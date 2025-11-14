@@ -397,7 +397,10 @@
                 };
                 reader.readAsArrayBuffer(file);
             } else {
-                await uploadObject(auth, objectKey, document.getElementById('contentText').value, contentType, false);
+                // Encode text content as base64 to preserve special characters
+                const text = document.getElementById('contentText').value;
+                const contentB64 = base64EncodeText(text);
+                await uploadObject(auth, objectKey, contentB64, contentType, true);
             }
         });
         async function uploadObject(auth, objectKey, content, contentType, base64Encoded) {
@@ -432,9 +435,9 @@
                 document.getElementById('viewContentType').textContent = data.object.content_type || 'N/A';
                 document.getElementById('viewSize').textContent = formatBytes(data.object.size);
                 try {
-                    const contentBytes = atob(data.content);
+                    const bytes = base64ToBytes(data.content);
                     const isText = data.object.content_type && (data.object.content_type.startsWith('text/') || data.object.content_type.includes('json') || data.object.content_type.includes('xml'));
-                    document.getElementById('viewContent').textContent = isText ? contentBytes : '[Binary content - ' + formatBytes(data.object.size) + ']\nUse Download to save the file.';
+                    document.getElementById('viewContent').textContent = isText ? bytesToUtf8(bytes) : '[Binary content - ' + formatBytes(data.object.size) + ']\nUse Download to save the file.';
                 } catch (err) {
                     document.getElementById('viewContent').textContent = '[Unable to preview content]';
                 }
@@ -504,6 +507,36 @@
             if (uploadOpen) { hideUploadModal(); return; }
         });
         loadObjects();
+
+        // UTF-8 safe base64 encoder for text content
+        function base64EncodeText(str) {
+            if (window.TextEncoder) {
+                const bytes = new TextEncoder().encode(str);
+                let binary = '';
+                for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                return btoa(binary);
+            }
+            // Fallback for older browsers
+            return btoa(unescape(encodeURIComponent(str)));
+        }
+        // Base64 to Uint8Array
+        function base64ToBytes(b64) {
+            const binary = atob(b64);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+            return bytes;
+        }
+        // Uint8Array to UTF-8 string
+        function bytesToUtf8(bytes) {
+            if (window.TextDecoder) {
+                return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+            }
+            // Fallback
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+            return decodeURIComponent(escape(binary));
+        }
     </script>
 </body>
 </html>
