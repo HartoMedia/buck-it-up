@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  buck-it-up:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: buck-it-up
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - BUCK_DB_PATH=/app/data/data.db
+      - BUCK_DATA_PATH=/app/data
+    volumes:
+      # Persist database and uploaded files
+      - buck-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - buck-network
+
+volumes:
+  buck-data:
+    driver: local
+
+networks:
+  buck-network:
+    driver: bridge
+
