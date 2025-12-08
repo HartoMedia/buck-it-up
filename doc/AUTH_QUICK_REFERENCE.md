@@ -28,9 +28,9 @@ Authorization: Bearer <key_id>:<secret>
 ### Admin Authentication
 For admin-only operations (listing/creating buckets), use:
 ```bash
-Authorization: Bearer admin:<ADMIN_PASSWORD>
+Authorization: Bearer admin:<BUCKITUP_ADMIN_PASSWORD>
 ```
-Where `<ADMIN_PASSWORD>` is the value set in the `ADMIN_PASSWORD` environment variable.
+Where `<BUCKITUP_ADMIN_PASSWORD>` is the value set in the `BUCKITUP_ADMIN_PASSWORD` environment variable.
 
 ### List All Buckets (Admin Only)
 ```bash
@@ -77,7 +77,7 @@ curl -X DELETE http://localhost:8080/myBucket \
 
 ## Important Notes
 
-🔐 **Admin password required**: Set `ADMIN_PASSWORD` environment variable to enable admin operations (LIST /, POST /).
+🔐 **Admin password required**: Set `BUCKITUP_ADMIN_PASSWORD` environment variable to enable admin operations (LIST /, POST /).
 
 ⚠️ **Secrets are shown only once** during bucket creation. Store them securely!
 

@@ -130,10 +130,10 @@ Bucket creation (`POST /`) and listing all buckets (`LIST /`) now require admin 
 ### Admin Authentication
 
 To use admin operations, you must:
-1. Set the `ADMIN_PASSWORD` environment variable
+1. Set the `BUCKITUP_ADMIN_PASSWORD` environment variable
 2. Use the admin credentials in your requests:
    ```
-   Authorization: Bearer admin:<ADMIN_PASSWORD>
+   Authorization: Bearer admin:<BUCKITUP_ADMIN_PASSWORD>
    ```
 
 See [ADMIN_ACCESS.md](ADMIN_ACCESS.md) for complete admin documentation.

@@ -730,7 +730,7 @@ func (r *Router) recreateAccessKey(w nethttp.ResponseWriter, req *nethttp.Reques
 
 func (r *Router) ensureBucketObjectsDir(bucketID int64) (string, error) {
 	dataRoot := "data"
-	if dr := os.Getenv("BUCK_DATA_PATH"); dr != "" {
+	if dr := os.Getenv("BUCKITUP_DATA_PATH"); dr != "" {
 		dataRoot = dr
 	}
 	p := filepath.Join(dataRoot, "buckets", strconv.FormatInt(bucketID, 10), "objects")

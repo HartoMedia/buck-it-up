@@ -56,7 +56,7 @@ func (r *Router) AuthMiddleware(level AuthLevel) func(nethttp.Handler) nethttp.H
 			secret := credentials[1]
 
 			if keyID == "admin" {
-				adminPassword := os.Getenv("ADMIN_PASSWORD")
+				adminPassword := os.Getenv("BUCKITUP_ADMIN_PASSWORD")
 				if adminPassword == "" {
 					w.Header().Set("X-Auth-Error", "admin authentication not configured")
 					nethttp.Error(w, "invalid credentials", nethttp.StatusUnauthorized)

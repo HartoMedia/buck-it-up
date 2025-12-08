@@ -65,15 +65,15 @@ This guide explains how to run Buck It Up using Docker and Docker Compose.
 You can customize the application using environment variables in `docker-compose.yml`:
 
 - `PORT`: HTTP server port (default: 8080)
-- `BUCK_DB_PATH`: Path to SQLite database file (default: /app/data/data.db)
-- `BUCK_DATA_PATH`: Root directory for bucket storage (default: /app/data)
+- `BUCKITUP_DB_PATH`: Path to SQLite database file (default: /app/data/data.db)
+- `BUCKITUP_DATA_PATH`: Root directory for bucket storage (default: /app/data)
 
 Example:
 ```yaml
 environment:
   - PORT=8080
-  - BUCK_DB_PATH=/app/data/data.db
-  - BUCK_DATA_PATH=/app/data
+  - BUCKITUP_DB_PATH=/app/data/data.db
+  - BUCKITUP_DATA_PATH=/app/data
 ```
 
 ### Ports

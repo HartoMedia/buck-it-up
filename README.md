@@ -1,118 +1,122 @@
-Quick start
+# Buck It Up  
 
-This service is a small HTTP server that uses an embedded SQLite database (modernc.org/sqlite, no cgo required).
+[![Go](https://img.shields.io/badge/go-1.20+-00ADD8)](https://golang.org) [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 
-Build (Windows PowerShell):
+Short Description
 
-```powershell
-& "C:\Program Files\Go\bin\go.exe" build -o .\buck_It_Up.exe .
-```
+Buck It Up is a lightweight object storage HTTP service with bucket management, role-based access keys, an admin password mode, and a built-in web admin UI. It uses an embedded SQLite database and stores object files on disk so you can self-host small-to-medium workloads without external object stores.
 
-Run (PowerShell, set port and DB path if you want):
+Table of Contents
 
-```powershell
-$env:PORT = '8082'
-$env:BUCK_DB_PATH = 'data.db'
-.\buck_It_Up.exe
-```
+- Features
+- Installation
+- Usage Example
+- Configuration
+- API / Docs
+- Contributing
+- Roadmap
 
-Smoke tests (PowerShell):
-
-```powershell
-# health
-Invoke-RestMethod -Uri http://localhost:8082/health
-# index
-Invoke-RestMethod -Uri http://localhost:8082/
-# echo
-Invoke-RestMethod -Uri http://localhost:8082/echo -Method Post -Body 'hello'
-# bucket lookup (should be 404 initially)
-try { Invoke-RestMethod -Uri http://localhost:8082/buckets/test -ErrorAction Stop } catch { $_.Exception.Response.StatusCode }
-```
-
-Notes:
-- The project uses modernc.org/sqlite so it doesn't require cgo (fixes the previous go-sqlite3 "CGO_ENABLED=0" issue).
-- Default DB file is data.db in the repo root. It will be created automatically and migrations applied on first run.
-- **Admin Access:** Set `ADMIN_PASSWORD` environment variable to enable admin access to all routes. See [ADMIN_ACCESS.md](doc/ADMIN_ACCESS.md) for details.
-- **Web UI:** Access the admin dashboard at `/ui` for a graphical interface. See [WEBUI_DOCUMENTATION.md](doc/WEBUI_DOCUMENTATION.md) for details.
-
-# Buck It Up
-
-A simple object storage service with bucket management and access control.
-
+---
 ## Features
 
-- 🪣 **Bucket Management** - Create, list, and delete buckets
-- 📦 **Object Storage** - Upload, download, and delete objects with metadata
-- 🔐 **Access Control** - Role-based access keys (read-only, read-write, all)
-- 👑 **Admin Access** - Global admin password for full system access
-- 🌐 **Web UI** - Modern browser-based admin dashboard at `/ui`
-- 💾 **SQLite Storage** - Embedded database with automatic migrations
-- 🚀 **No CGO Required** - Pure Go implementation using modernc.org/sqlite
+- Bucket management: create, list, and delete buckets
+- Object storage: upload, download, preview, and delete objects
+- Role-based access keys: readOnly, readWrite, and all scopes (per-bucket)
+- Admin password: global admin access for full system control
+- Built-in Web UI at /ui for visual administration
+- SQLite-based persistence with automatic migrations
+- No cgo required (uses modernc.org/sqlite)
 
-## Web UI
+---
+## Build:
 
-Buck It Up includes a built-in web interface for easy administration:
+Docker (recommended)
 
-**Access:** Open `http://localhost:8080/ui` in your browser
-
-**Features:**
-- Visual bucket and object management
-- Drag-and-drop file uploads
-- Content preview for text files
-- One-click downloads
-- Mobile-responsive design
-
-**Getting Started:**
-```powershell
-# Set admin password
-$env:ADMIN_PASSWORD = "your-secure-password"
-
-# Start server
-.\buck_It_Up.exe
-
-# Open browser to http://localhost:8080/ui
+1. Set all the necessary environment variables in the docker-compose.yml file (defaults are set).
+2. Run the docker-compose command:
+```bash
+docker compose up -d
 ```
 
-See [WEBUI_DOCUMENTATION.md](doc/WEBUI_DOCUMENTATION.md) for complete UI documentation.
+Everywhere else:
+1. Set the environment variables (mainly the BUCKITUP_ADMIN_PASSWORD for accessing the UI).
+2. Build the go binary for your setup
+3. Run the binary
 
-## Authentication
+---
+## Usage Example
 
-Buck It Up uses two authentication methods:
+Basic health check and endpoints:
 
-1. **Access Keys** - Bucket-specific credentials with role-based permissions (read-only, read-write, all)
-2. **Admin Password** - Global administrator access to all buckets and routes (required for Web UI)
-
-See [AUTHENTICATION.md](doc/AUTHENTICATION.md) for access key details and [ADMIN_ACCESS.md](doc/ADMIN_ACCESS.md) for admin password setup.
-
-## Quick Admin Usage
-
-```powershell
-# Set admin password
-$env:ADMIN_PASSWORD = "your-secure-password"
-
-# Use admin credentials
-$headers = @{
-    "Authorization" = "Bearer admin:your-secure-password"
-}
-
-# List all buckets (admin only)
-Invoke-RestMethod -Uri http://localhost:8080/ -Method LIST -Headers $headers
-
-# Create a bucket (admin only)
-$body = @{ name = "my-bucket" } | ConvertTo-Json
-Invoke-RestMethod -Uri http://localhost:8080/ -Method POST -Headers $headers -Body $body -ContentType "application/json"
+```bash
+# Health
+curl http://localhost:8080/health
+# Echo
+curl -X GET http://localhost:8080/echo \
+  -H "Content-Type: text/plain" \
+  -d "Hello from curl!"
 ```
 
-## Endpoints
+Access the UI at http://localhost:8080/ui
 
-### Get Object
 
-GET /{bucketName}/{objectKey}
+---
+## Configuration
 
-Returns JSON:
-{
-  "object": { /* metadata */ },
-  "content": "raw file content"  // text; binary objects may need base64 later
-}
 
-Object file paths are stored under `data/buckets/<bucket_id>/objects/<object_id>`.
+Key environment variables:
+- PORT: HTTP port (default 8080 and only important if you don't use docker)
+- BUCKITUP_DB_PATH: SQLite DB file path (default data.db)
+- BUCKITUP_DATA_PATH: Root path for stored object files (default ./data)
+- BUCKITUP_ADMIN_PASSWORD: Set to enable global admin access (required for /ui)
+---
+## API / Docs
+
+- Authentication: Bearer tokens in the form `Authorization: Bearer <key_id>:<secret>` for access keys, or `Bearer admin:<BUCKITUP_ADMIN_PASSWORD>` for admin
+- Bucket creation (admin only and doable in the ui): POST /
+- List buckets (admin only): LIST /
+- List bucket contents: LIST /{bucketName}
+- Upload object: POST /{bucketName}/upload
+- Get full object: GET /{bucketName}/all/{objectKey}
+- Get metadata: GET /{bucketName}/metadata/{objectKey}
+- Get content only: GET /{bucketName}/content/{objectKey}
+- Delete object: DELETE /{bucketName}/{objectKey}
+
+
+### Access Level Matrix
+
+| Endpoint | No Auth | Read-Only | Read-Write | All |
+|----------|---------|-----------|------------|-----|
+| `GET /health` | ✓ | ✓ | ✓ | ✓ |
+| `GET /echo` | ✓ | ✓ | ✓ | ✓ |
+| `LIST /` | ✗ | ✗ | ✗ | ✓ |
+| `POST /` | ✗ | ✗ | ✗ | ✓ |
+| `GET /{name}` | ✗ | ✓ | ✓ | ✓ |
+| `LIST /{bucketName}` | ✗ | ✓ | ✓ | ✓ |
+| `GET /{bucketName}/all/*` | ✗ | ✓ | ✓ | ✓ |
+| `GET /{bucketName}/metadata/*` | ✗ | ✓ | ✓ | ✓ |
+| `GET /{bucketName}/content/*` | ✗ | ✓ | ✓ | ✓ |
+| `POST /{bucketName}/upload` | ✗ | ✗ | ✓ | ✓ |
+| `DELETE /{bucketName}/*` | ✗ | ✗ | ✓ | ✓ |
+| `DELETE /{bucketName}` | ✗ | ✗ | ✗ | ✓ |
+
+### yaak json
+
+See [yaak.json](./yaak.json).
+
+---
+## Contributing
+
+Contributions welcome! Suggested workflow:
+1. Fork the repo
+2. Create a feature branch
+3. Open a pull request with a clear description
+
+Please follow existing code style and write small, focused commits.
+
+---
+## Roadmap
+
+- Web UI improvements
+- Add CORS Settings for Buckets
+- Improved large-file handling and streaming uploads

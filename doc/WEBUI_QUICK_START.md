@@ -4,7 +4,7 @@
 
 ```powershell
 # 1. Set admin password
-$env:ADMIN_PASSWORD = "my-secure-password"
+$env:BUCKITUP_ADMIN_PASSWORD = "my-secure-password"
 
 # 2. Start server
 .\buck_It_Up.exe
@@ -65,10 +65,10 @@ Invoke-RestMethod -Uri "http://localhost:8080/my-bucket/file.txt" -Method DELETE
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ADMIN_PASSWORD` | (none) | **Required** for web UI - Admin password for authentication |
+| `BUCKITUP_ADMIN_PASSWORD` | (none) | **Required** for web UI - Admin password for authentication |
 | `PORT` | `8080` | Server port |
-| `BUCK_DB_PATH` | `data.db` | SQLite database file path |
-| `BUCK_DATA_PATH` | `data` | Object storage directory |
+| `BUCKITUP_DB_PATH` | `data.db` | SQLite database file path |
+| `BUCKITUP_DATA_PATH` | `data` | Object storage directory |
 
 ## URLs
 
@@ -121,7 +121,7 @@ Use forward slashes in object keys:
 → Check server is running: `http://localhost:8080/health`
 
 **"Invalid password"**
-→ Verify `$env:ADMIN_PASSWORD` matches your login password
+→ Verify `$env:BUCKITUP_ADMIN_PASSWORD` matches your login password
 
 **"Server won't start"**
 → Port 8080 might be in use: `Get-Process | Where-Object {$_.ProcessName -eq "buck_It_Up"} | Stop-Process`
@@ -139,7 +139,7 @@ Use forward slashes in object keys:
 .\test_ui_simple.ps1
 
 # Or manually test:
-$env:ADMIN_PASSWORD = "test123"
+$env:BUCKITUP_ADMIN_PASSWORD = "test123"
 .\buck_It_Up.exe
 
 # Then open: http://localhost:8080/ui

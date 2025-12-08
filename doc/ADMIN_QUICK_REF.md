@@ -3,7 +3,7 @@
 ## Setup
 ```powershell
 # Set the admin password before starting the server
-$env:ADMIN_PASSWORD = "your-secure-password"
+$env:BUCKITUP_ADMIN_PASSWORD = "your-secure-password"
 .\buck_It_Up.exe
 ```
 

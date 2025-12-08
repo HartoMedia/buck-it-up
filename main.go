@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	dbPath := os.Getenv("BUCK_DB_PATH")
+	dbPath := os.Getenv("BUCKITUP_DB_PATH")
 	if dbPath == "" {
 		dbPath = "data.db"
 	}

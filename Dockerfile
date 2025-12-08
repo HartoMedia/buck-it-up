@@ -49,8 +49,8 @@ EXPOSE 8080
 
 # Set environment variables
 ENV PORT=8080 \
-    BUCK_DB_PATH=/app/data/data.db \
-    BUCK_DATA_PATH=/app/data
+    BUCKITUP_DB_PATH=/app/data/data.db \
+    BUCKITUP_DATA_PATH=/app/data
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

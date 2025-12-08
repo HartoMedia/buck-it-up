@@ -65,7 +65,7 @@ I've successfully implemented a **full-featured web UI** for the Buck It Up obje
 
 ```powershell
 # Set admin password
-$env:ADMIN_PASSWORD = "your-secure-password"
+$env:BUCKITUP_ADMIN_PASSWORD = "your-secure-password"
 
 # Start server
 .\buck_It_Up.exe
@@ -77,7 +77,7 @@ Open your browser to: **http://localhost:8080/ui**
 
 ### 3. Login
 
-Enter your admin password (the one you set in `ADMIN_PASSWORD`)
+Enter your admin password (the one you set in `BUCKITUP_ADMIN_PASSWORD`)
 
 ### 4. Manage Buckets and Objects
 
@@ -166,7 +166,7 @@ If you want to extend the UI further, here are some ideas:
 - Kill any existing buck_It_Up processes: `Get-Process buck_It_Up | Stop-Process`
 
 ### Can't login
-- Verify `ADMIN_PASSWORD` environment variable is set
+- Verify `BUCKITUP_ADMIN_PASSWORD` environment variable is set
 - Check that password matches exactly (case-sensitive)
 
 ### Objects not showing
@@ -186,5 +186,5 @@ The web UI is **fully functional** and ready to use. You now have:
 - ✅ Mobile-responsive layout
 - ✅ Comprehensive documentation
 
-Just start the server with `ADMIN_PASSWORD` set and navigate to `/ui` to start using it!
+Just start the server with `BUCKITUP_ADMIN_PASSWORD` set and navigate to `/ui` to start using it!
 

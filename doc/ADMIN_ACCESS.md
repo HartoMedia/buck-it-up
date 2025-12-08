@@ -8,23 +8,23 @@ The Buck It Up server now supports an admin password that grants full access to 
 
 ### Setting the Admin Password
 
-The admin password is configured via the `ADMIN_PASSWORD` environment variable. 
+The admin password is configured via the `BUCKITUP_ADMIN_PASSWORD` environment variable. 
 [
 ]()**Windows PowerShell:**
 ```powershell
-$env:ADMIN_PASSWORD="your-secure-admin-password"
+$env:BUCKITUP_ADMIN_PASSWORD="your-secure-admin-password"
 .\buck_It_Up.exe
 ```
 
 **Linux/Mac:**
 ```bash
-export ADMIN_PASSWORD="your-secure-admin-password"
+export BUCKITUP_ADMIN_PASSWORD="your-secure-admin-password"
 ./buck_It_Up
 ```
 
 **Docker:**
 ```bash
-docker run -e ADMIN_PASSWORD="your-secure-admin-password" -p 8080:8080 buck_it_up
+docker run -e BUCKITUP_ADMIN_PASSWORD="your-secure-admin-password" -p 8080:8080 buck_it_up
 ```
 
 ### Security Considerations
@@ -32,7 +32,7 @@ docker run -e ADMIN_PASSWORD="your-secure-admin-password" -p 8080:8080 buck_it_u
 - **Never use a weak password** - Use a strong, randomly generated password
 - **Keep the password secret** - Do not commit it to version control
 - **Use HTTPS in production** - Admin credentials should always be transmitted over HTTPS
-- If `ADMIN_PASSWORD` is not set, admin authentication will be disabled
+- If `BUCKITUP_ADMIN_PASSWORD` is not set, admin authentication will be disabled
 
 ## Usage
 
@@ -46,7 +46,7 @@ Authorization: Bearer admin:<admin_password>
 
 Where:
 - `admin` is the fixed username for admin access
-- `<admin_password>` is the password set in the `ADMIN_PASSWORD` environment variable
+- `<admin_password>` is the password set in the `BUCKITUP_ADMIN_PASSWORD` environment variable
 
 ### Example Requests
 
@@ -165,10 +165,10 @@ With admin credentials, you have full access to:
 ## Troubleshooting
 
 ### "admin authentication not configured"
-The `ADMIN_PASSWORD` environment variable is not set. Set it before starting the server.
+The `BUCKITUP_ADMIN_PASSWORD` environment variable is not set. Set it before starting the server.
 
 ### "invalid admin password"
-The password provided does not match the `ADMIN_PASSWORD` environment variable. Verify you're using the correct password.
+The password provided does not match the `BUCKITUP_ADMIN_PASSWORD` environment variable. Verify you're using the correct password.
 
 ### "authorization required"
 The `Authorization` header is missing. Include it with the format `Bearer admin:<password>`.

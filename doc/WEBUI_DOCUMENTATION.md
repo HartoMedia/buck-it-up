@@ -17,17 +17,17 @@ The Buck It Up server now includes a modern web-based admin dashboard accessible
 
 ### 1. Set the Admin Password
 
-Before accessing the UI, make sure you have set the `ADMIN_PASSWORD` environment variable:
+Before accessing the UI, make sure you have set the `BUCKITUP_ADMIN_PASSWORD` environment variable:
 
 **Windows PowerShell:**
 ```powershell
-$env:ADMIN_PASSWORD="your-secure-admin-password"
+$env:BUCKITUP_ADMIN_PASSWORD="your-secure-admin-password"
 .\buck_It_Up.exe
 ```
 
 **Linux/Mac:**
 ```bash
-export ADMIN_PASSWORD="your-secure-admin-password"
+export BUCKITUP_ADMIN_PASSWORD="your-secure-admin-password"
 ./buck_It_Up
 ```
 
@@ -43,7 +43,7 @@ This will redirect you to the login page.
 
 ### 3. Login
 
-Enter your admin password (the same one you set in `ADMIN_PASSWORD`) and click "Login".
+Enter your admin password (the same one you set in `BUCKITUP_ADMIN_PASSWORD`) and click "Login".
 
 ## Using the Dashboard
 
@@ -141,7 +141,7 @@ JavaScript must be enabled for the UI to function.
 
 ### "Invalid admin password" error
 
-- Make sure the `ADMIN_PASSWORD` environment variable is set before starting the server
+- Make sure the `BUCKITUP_ADMIN_PASSWORD` environment variable is set before starting the server
 - Verify you're entering the correct password
 - The password is case-sensitive
 
