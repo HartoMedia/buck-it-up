@@ -9,8 +9,8 @@ The Buck It Up server now supports an admin password that grants full access to 
 ### Setting the Admin Password
 
 The admin password is configured via the `ADMIN_PASSWORD` environment variable. 
-
-**Windows PowerShell:**
+[
+]()**Windows PowerShell:**
 ```powershell
 $env:ADMIN_PASSWORD="your-secure-admin-password"
 .\buck_It_Up.exe

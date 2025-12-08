@@ -27,35 +27,30 @@ type Router struct {
 	db  *sql.DB
 }
 
-// Custom HTTP method for listing resources
 const MethodList = "LIST"
 
 func init() {
-	// Register custom HTTP method with chi
 	chi.RegisterMethod(MethodList)
 }
 
 func New(db *sql.DB) *Router {
-	// Create chi router
 	r := &Router{mux: chi.NewRouter(), db: db}
 
-	// Basic middleware stack (recoverer + requestID + logger minimal)
 	r.mux.Use(middleware.RequestID)
 	r.mux.Use(middleware.RealIP)
 	r.mux.Use(middleware.Logger)
 	r.mux.Use(middleware.Recoverer)
-	r.mux.Use(middleware.Compress(5)) // Enable gzip compression with compression level 5
+	r.mux.Use(middleware.Compress(5))
 
 	//Misc routes - no auth required
 	r.mux.Get("/health", r.health)
 	r.mux.Get("/echo", r.echo)
 
-	// UI routes - no auth required (auth handled in browser)
+	// UI - auth handled in browser
 	r.mux.Get("/ui/login", r.uiLogin)
 	r.mux.Get("/ui/dashboard", r.uiDashboard)
 	r.mux.Get("/ui/bucket/*", r.uiBucketView)
 	r.mux.Get("/ui/empty.svg", r.uiRandomEmptySVG)
-	// Redirect /ui to /ui/login
 	r.mux.Get("/ui", func(w nethttp.ResponseWriter, req *nethttp.Request) {
 		nethttp.Redirect(w, req, "/ui/login", nethttp.StatusFound)
 	})
@@ -63,52 +58,35 @@ func New(db *sql.DB) *Router {
 		nethttp.Redirect(w, req, "/ui/login", nethttp.StatusFound)
 	})
 
-	// Admin-only bucket management routes
 	r.mux.Group(func(admin chi.Router) {
 		admin.Use(r.AuthMiddleware(AuthLevelAll))
-		// LIST / -> list all buckets
 		admin.MethodFunc(MethodList, "/", r.listBuckets)
-		// POST / -> add a new bucket
 		admin.Post("/", r.createBucket)
-		// GET /{name}/access-keys -> list access keys for a bucket
 		admin.Get("/{name}/access-keys", r.listAccessKeys)
-		// POST /{name}/access-keys/recreate -> recreate access key for a bucket and role
 		admin.Post("/{name}/access-keys/recreate", r.recreateAccessKey)
 	})
 
-	// Protected bucket routes - read only access
 	r.mux.Group(func(readOnly chi.Router) {
 		readOnly.Use(r.AuthMiddleware(AuthLevelReadOnly))
-		// GET /{name} -> get single bucket by name (only for their bucket)
 		readOnly.Get("/{name}", r.getBucketByName)
 	})
 
-	// Protected bucket content routes - read only access
 	r.mux.Group(func(readOnly chi.Router) {
 		readOnly.Use(r.AuthMiddleware(AuthLevelReadOnly))
-		// LIST /{bucketName} -> list bucket content
 		readOnly.MethodFunc(MethodList, "/{bucketName}", r.listBucketContent)
-		// GET /{bucketName}/all/* -> get object metadata + content
 		readOnly.Get("/{bucketName}/all/*", r.getObjectByKey)
-		// GET /{bucketName}/metadata/* -> get object metadata only
 		readOnly.Get("/{bucketName}/metadata/*", r.getObjectByKeyOnlyMetadata)
-		// GET /{bucketName}/content/* -> get object content only
 		readOnly.Get("/{bucketName}/content/*", r.getObjectByKeyOnlyContent)
 	})
 
-	// Protected object routes - read/write access
 	r.mux.Group(func(readWrite chi.Router) {
 		readWrite.Use(r.AuthMiddleware(AuthLevelReadWrite))
-		// POST /{bucketName}/upload -> upload object to bucket
 		readWrite.Post("/{bucketName}/upload", r.uploadObjectToBucket)
-		// DELETE /{bucketName}/* -> delete object by key
 		readWrite.Delete("/{bucketName}/*", r.deleteObjectByKey)
 	})
 
-	// Protected bucket routes - all access (bucket deletion)
 	r.mux.Group(func(all chi.Router) {
 		all.Use(r.AuthMiddleware(AuthLevelAll))
-		// DELETE /{name} -> delete bucket by name
 		all.Delete("/{name}", r.deleteBucketByName)
 	})
 
@@ -143,7 +121,7 @@ func (r *Router) listBucketContent(w nethttp.ResponseWriter, req *nethttp.Reques
 
 func (r *Router) getBucketByName(w nethttp.ResponseWriter, req *nethttp.Request) {
 	name := chi.URLParam(req, "name")
-	if name == "" || strings.Contains(name, "/") { // chi already won't match embedded slash, but keep validation
+	if name == "" || strings.Contains(name, "/") {
 		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
 		return
 	}
@@ -165,7 +143,6 @@ func (r *Router) getBucketByName(w nethttp.ResponseWriter, req *nethttp.Request)
 	_ = json.NewEncoder(w).Encode(b)
 }
 
-// LIST /
 func (r *Router) listBuckets(w nethttp.ResponseWriter, req *nethttp.Request) {
 	store := models.NewBucketStore(r.db)
 	ctx := req.Context()
@@ -200,7 +177,6 @@ func (r *Router) echo(w nethttp.ResponseWriter, req *nethttp.Request) {
 }
 
 func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
-	// Expect JSON body {"name":"bucketName"}
 	var body struct {
 		Name string `json:"name"`
 	}
@@ -222,7 +198,6 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 	bucket := &models.Bucket{Name: name, CreatedAt: time.Now().Unix()}
 	bucketID, err := store.NewBucket(ctx, bucket)
 	if err != nil {
-		// Check for uniqueness violation (sqlite returns error string containing "UNIQUE")
 		errMsg := err.Error()
 		if strings.Contains(strings.ToLower(errMsg), "unique") {
 			nethttp.Error(w, "bucket exists", nethttp.StatusConflict)
@@ -233,7 +208,6 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 	}
 	bucket.ID = bucketID
 
-	// Generate 3 access keys - one for each role
 	akStore := models.NewAccessKeyStore(r.db)
 	roles := []models.AccessKeyRole{
 		models.RoleReadOnly,
@@ -246,13 +220,11 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 	for _, role := range roles {
 		keyID, secret, err := r.generateAccessKey()
 		if err != nil {
-			// Rollback: delete the bucket (this will cascade delete any created keys)
 			_ = store.DeleteBucketByName(ctx, name)
 			nethttp.Error(w, "failed to generate access keys", nethttp.StatusInternalServerError)
 			return
 		}
 
-		// Hash the secret for storage
 		secretHash := hashSecret(secret)
 
 		ak := &models.AccessKey{
@@ -265,7 +237,6 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 
 		akID, err := akStore.CreateAccessKey(ctx, ak)
 		if err != nil {
-			// Rollback: delete the bucket
 			_ = store.DeleteBucketByName(ctx, name)
 			nethttp.Error(w, "failed to create access keys", nethttp.StatusInternalServerError)
 			return
@@ -275,7 +246,6 @@ func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {
 		accessKeys = append(accessKeys, ak.ToResponseWithSecret(secret))
 	}
 
-	// Return bucket with access keys
 	response := struct {
 		*models.BucketResponse
 		AccessKeys []*models.AccessKeyWithSecretResponse `json:"access_keys"`
@@ -297,7 +267,6 @@ func (r *Router) deleteBucketByName(w nethttp.ResponseWriter, req *nethttp.Reque
 	}
 	store := models.NewBucketStore(r.db)
 	ctx := req.Context()
-	// Ensure bucket exists first
 	if _, err := store.GetBucketByName(ctx, name); err != nil {
 		if err == sql.ErrNoRows {
 			nethttp.NotFound(w, req)
@@ -307,7 +276,6 @@ func (r *Router) deleteBucketByName(w nethttp.ResponseWriter, req *nethttp.Reque
 		return
 	}
 	if err := store.DeleteBucketByName(ctx, name); err != nil {
-		// Likely FK constraint violation if objects/access keys exist
 		errMsg := strings.ToLower(err.Error())
 		if strings.Contains(errMsg, "constraint") {
 			nethttp.Error(w, "bucket not empty", nethttp.StatusConflict)
@@ -325,10 +293,9 @@ func (r *Router) getObjectByKey(w nethttp.ResponseWriter, req *nethttp.Request) 
 		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
 		return
 	}
-	// Remaining path after bucketName is the object key (chi wildcard *) but the objectKey can contain slashes
 	objectKey := strings.TrimPrefix(req.URL.Path, "/"+bucketName+"/all/")
 	objectKey = strings.TrimSpace(objectKey)
-	if objectKey == "" || strings.Contains(objectKey, "\x00") { // basic validation
+	if objectKey == "" || strings.Contains(objectKey, "\x00") {
 		nethttp.Error(w, "invalid object key", nethttp.StatusBadRequest)
 		return
 	}
@@ -358,12 +325,9 @@ func (r *Router) getObjectByKey(w nethttp.ResponseWriter, req *nethttp.Request) 
 		return
 	}
 
-	// Read object content from its file_path
 	contentPath := obj.FilePath
-	// Security: ensure file path is inside expected bucket directory
 	fmt.Println("Trying to read file at path:", contentPath)
 	expectedPrefix := filepath.Join("data", "buckets", strconv.FormatInt(bucket.ID, 10), "objects")
-	// Normalize both paths for comparison (handle forward/backward slashes)
 	normalizedContentPath := filepath.Clean(contentPath)
 	normalizedExpectedPrefix := filepath.Clean(expectedPrefix)
 	if !strings.HasPrefix(normalizedContentPath, normalizedExpectedPrefix) {
@@ -399,7 +363,6 @@ func (r *Router) getObjectByKeyOnlyMetadata(w nethttp.ResponseWriter, req *netht
 		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
 		return
 	}
-	// Remaining path after bucketName/metadata/ is the object key
 	objectKey := strings.TrimPrefix(req.URL.Path, "/"+bucketName+"/metadata/")
 	objectKey = strings.TrimSpace(objectKey)
 	if objectKey == "" || strings.Contains(objectKey, "\x00") {
@@ -441,7 +404,6 @@ func (r *Router) getObjectByKeyOnlyContent(w nethttp.ResponseWriter, req *nethtt
 		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
 		return
 	}
-	// Remaining path after bucketName/content/ is the object key
 	objectKey := strings.TrimPrefix(req.URL.Path, "/"+bucketName+"/content/")
 	objectKey = strings.TrimSpace(objectKey)
 	if objectKey == "" || strings.Contains(objectKey, "\x00") {
@@ -472,11 +434,8 @@ func (r *Router) getObjectByKeyOnlyContent(w nethttp.ResponseWriter, req *nethtt
 		return
 	}
 
-	// Read object content from its file_path
 	contentPath := obj.FilePath
-	// Security: ensure file path is inside expected bucket directory
 	expectedPrefix := filepath.Join("data", "buckets", strconv.FormatInt(bucket.ID, 10), "objects")
-	// Normalize both paths for comparison (handle forward/backward slashes)
 	normalizedContentPath := filepath.Clean(contentPath)
 	normalizedExpectedPrefix := filepath.Clean(expectedPrefix)
 	if !strings.HasPrefix(normalizedContentPath, normalizedExpectedPrefix) {
@@ -493,7 +452,6 @@ func (r *Router) getObjectByKeyOnlyContent(w nethttp.ResponseWriter, req *nethtt
 		return
 	}
 
-	// Set content type from metadata if available
 	if obj.ContentType != "" {
 		w.Header().Set("Content-Type", obj.ContentType)
 	} else {
@@ -510,12 +468,11 @@ func (r *Router) uploadObjectToBucket(w nethttp.ResponseWriter, req *nethttp.Req
 		return
 	}
 
-	// Parse JSON body
 	var body struct {
 		ObjectKey     string `json:"object_key"`
 		Content       string `json:"content"`
 		ContentType   string `json:"content_type"`
-		Base64Encoded bool   `json:"base64_encoded,omitempty"` // Optional flag to indicate content is base64
+		Base64Encoded bool   `json:"base64_encoded,omitempty"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		nethttp.Error(w, "invalid json", nethttp.StatusBadRequest)
@@ -540,17 +497,14 @@ func (r *Router) uploadObjectToBucket(w nethttp.ResponseWriter, req *nethttp.Req
 		return
 	}
 
-	// Create object record first to get the object ID
 	var contentBytes []byte
 	if body.Base64Encoded {
-		// Decode base64 content
 		contentBytes, err = base64.StdEncoding.DecodeString(body.Content)
 		if err != nil {
 			nethttp.Error(w, "invalid base64 content", nethttp.StatusBadRequest)
 			return
 		}
 	} else {
-		// Use raw content
 		contentBytes = []byte(body.Content)
 	}
 	contentType := strings.TrimSpace(body.ContentType)
@@ -558,14 +512,12 @@ func (r *Router) uploadObjectToBucket(w nethttp.ResponseWriter, req *nethttp.Req
 		contentType = "application/octet-stream"
 	}
 
-	// Calculate checksum (simple approach - could use SHA256 or MD5)
 	checksum := fmt.Sprintf("%d", len(contentBytes))
 
-	// Create the object in DB (we need the ID to determine the file path)
 	obj := &models.Object{
 		BucketID:    bucket.ID,
 		ObjectKey:   objectKey,
-		FilePath:    "", // Will be set after we get the ID
+		FilePath:    "",
 		Size:        int64(len(contentBytes)),
 		ContentType: contentType,
 		Checksum:    checksum,
@@ -584,13 +536,10 @@ func (r *Router) uploadObjectToBucket(w nethttp.ResponseWriter, req *nethttp.Req
 		return
 	}
 
-	// Now we have the object ID, determine the file path
 	obj.ID = objectID
 
-	// Use storage helper to ensure directory exists and get file path
 	bucketDir, err := r.ensureBucketObjectsDir(bucket.ID)
 	if err != nil {
-		// Rollback: delete the DB record
 		_ = oStore.DeleteObject(ctx, bucket.ID, objectKey)
 		nethttp.Error(w, "failed to create storage directory", nethttp.StatusInternalServerError)
 		return
@@ -598,18 +547,14 @@ func (r *Router) uploadObjectToBucket(w nethttp.ResponseWriter, req *nethttp.Req
 
 	filePath := filepath.Join(bucketDir, strconv.FormatInt(objectID, 10))
 
-	// Write content to file
 	if err := os.WriteFile(filePath, contentBytes, 0o644); err != nil {
-		// Rollback: delete the DB record
 		_ = oStore.DeleteObject(ctx, bucket.ID, objectKey)
 		nethttp.Error(w, "failed to write object file", nethttp.StatusInternalServerError)
 		return
 	}
 
-	// Update the object record with the file path
 	obj.FilePath = filePath
 	if err := r.updateObjectFilePath(ctx, objectID, filePath); err != nil {
-		// Rollback: delete file and DB record
 		_ = os.Remove(filePath)
 		_ = oStore.DeleteObject(ctx, bucket.ID, objectKey)
 		nethttp.Error(w, "failed to update object metadata", nethttp.StatusInternalServerError)
@@ -627,7 +572,6 @@ func (r *Router) deleteObjectByKey(w nethttp.ResponseWriter, req *nethttp.Reques
 		nethttp.Error(w, "invalid bucket name", nethttp.StatusBadRequest)
 		return
 	}
-	// Remaining path after bucketName is the object key (chi wildcard *)
 	objectKey := strings.TrimPrefix(req.URL.Path, "/"+bucketName+"/")
 	objectKey = strings.TrimSpace(objectKey)
 	if objectKey == "" || strings.Contains(objectKey, "\x00") {
@@ -648,7 +592,6 @@ func (r *Router) deleteObjectByKey(w nethttp.ResponseWriter, req *nethttp.Reques
 	}
 
 	oStore := models.NewObjectStore(r.db)
-	// Get the object first to find its file path
 	obj, err := oStore.GetObject(ctx, bucket.ID, objectKey)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -659,9 +602,7 @@ func (r *Router) deleteObjectByKey(w nethttp.ResponseWriter, req *nethttp.Reques
 		return
 	}
 
-	// Delete the file from disk first
 	if obj.FilePath != "" {
-		// Security: ensure file path is inside expected bucket directory
 		expectedPrefix := filepath.Join("data", "buckets", strconv.FormatInt(bucket.ID, 10), "objects")
 		normalizedContentPath := filepath.Clean(obj.FilePath)
 		normalizedExpectedPrefix := filepath.Clean(expectedPrefix)
@@ -670,14 +611,12 @@ func (r *Router) deleteObjectByKey(w nethttp.ResponseWriter, req *nethttp.Reques
 			return
 		}
 
-		// Delete the file (ignore error if file doesn't exist)
 		if err := os.Remove(obj.FilePath); err != nil && !os.IsNotExist(err) {
 			nethttp.Error(w, "failed to delete object file", nethttp.StatusInternalServerError)
 			return
 		}
 	}
 
-	// Delete the object record from database
 	if err := oStore.DeleteObject(ctx, bucket.ID, objectKey); err != nil {
 		nethttp.Error(w, "failed to delete object", nethttp.StatusInternalServerError)
 		return
@@ -686,7 +625,6 @@ func (r *Router) deleteObjectByKey(w nethttp.ResponseWriter, req *nethttp.Reques
 	w.WriteHeader(nethttp.StatusNoContent)
 }
 
-// GET /{name}/access-keys -> list access keys for a bucket
 func (r *Router) listAccessKeys(w nethttp.ResponseWriter, req *nethttp.Request) {
 	name := chi.URLParam(req, "name")
 	if name == "" || strings.Contains(name, "/") {
@@ -713,7 +651,6 @@ func (r *Router) listAccessKeys(w nethttp.ResponseWriter, req *nethttp.Request) 
 		return
 	}
 
-	// Convert to response DTOs (without secrets)
 	response := make([]*models.AccessKeyResponse, 0, len(accessKeys))
 	for _, ak := range accessKeys {
 		response = append(response, ak.ToResponse())
@@ -724,7 +661,6 @@ func (r *Router) listAccessKeys(w nethttp.ResponseWriter, req *nethttp.Request) 
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// POST /{name}/access-keys/recreate -> recreate access key for a bucket and role
 func (r *Router) recreateAccessKey(w nethttp.ResponseWriter, req *nethttp.Request) {
 	name := chi.URLParam(req, "name")
 	if name == "" || strings.Contains(name, "/") {
@@ -732,7 +668,6 @@ func (r *Router) recreateAccessKey(w nethttp.ResponseWriter, req *nethttp.Reques
 		return
 	}
 
-	// Parse request body to get role
 	var body struct {
 		Role models.AccessKeyRole `json:"role"`
 	}
@@ -741,7 +676,6 @@ func (r *Router) recreateAccessKey(w nethttp.ResponseWriter, req *nethttp.Reques
 		return
 	}
 
-	// Validate role
 	if body.Role != models.RoleReadOnly && body.Role != models.RoleReadWrite && body.Role != models.RoleAll {
 		nethttp.Error(w, "invalid role: must be 'readOnly', 'readWrite', or 'all'", nethttp.StatusBadRequest)
 		return
@@ -761,20 +695,17 @@ func (r *Router) recreateAccessKey(w nethttp.ResponseWriter, req *nethttp.Reques
 
 	akStore := models.NewAccessKeyStore(r.db)
 
-	// Delete existing access key with this role
 	if err := akStore.DeleteAccessKeyByBucketAndRole(ctx, bucket.ID, body.Role); err != nil {
 		nethttp.Error(w, "failed to delete old access key", nethttp.StatusInternalServerError)
 		return
 	}
 
-	// Generate new access key
 	keyID, secret, err := r.generateAccessKey()
 	if err != nil {
 		nethttp.Error(w, "failed to generate access key", nethttp.StatusInternalServerError)
 		return
 	}
 
-	// Hash the secret for storage
 	secretHash := hashSecret(secret)
 
 	ak := &models.AccessKey{
@@ -792,13 +723,11 @@ func (r *Router) recreateAccessKey(w nethttp.ResponseWriter, req *nethttp.Reques
 	}
 	ak.ID = akID
 
-	// Return the new access key with secret
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(nethttp.StatusCreated)
 	_ = json.NewEncoder(w).Encode(ak.ToResponseWithSecret(secret))
 }
 
-// Helper to ensure bucket objects directory exists
 func (r *Router) ensureBucketObjectsDir(bucketID int64) (string, error) {
 	dataRoot := "data"
 	if dr := os.Getenv("BUCK_DATA_PATH"); dr != "" {
@@ -808,7 +737,6 @@ func (r *Router) ensureBucketObjectsDir(bucketID int64) (string, error) {
 	return p, os.MkdirAll(p, 0o755)
 }
 
-// Helper to update object file path in database
 func (r *Router) updateObjectFilePath(ctx context.Context, objectID int64, filePath string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE objects
@@ -818,16 +746,13 @@ func (r *Router) updateObjectFilePath(ctx context.Context, objectID int64, fileP
 	return err
 }
 
-// generateAccessKey generates a secure random key ID and secret
 func (r *Router) generateAccessKey() (keyID string, secret string, err error) {
-	// Generate keyID (20 bytes -> ~27 chars base64)
 	keyIDBytes := make([]byte, 20)
 	if _, err := rand.Read(keyIDBytes); err != nil {
 		return "", "", err
 	}
 	keyID = base64.URLEncoding.EncodeToString(keyIDBytes)
 
-	// Generate secret (32 bytes -> ~43 chars base64)
 	secretBytes := make([]byte, 32)
 	if _, err := rand.Read(secretBytes); err != nil {
 		return "", "", err
@@ -837,7 +762,6 @@ func (r *Router) generateAccessKey() (keyID string, secret string, err error) {
 	return keyID, secret, nil
 }
 
-// hashSecret creates a SHA256 hash of the secret for storage
 func hashSecret(secret string) string {
 	hash := sha256.Sum256([]byte(secret))
 	return base64.StdEncoding.EncodeToString(hash[:])

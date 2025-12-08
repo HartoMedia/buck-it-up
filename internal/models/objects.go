@@ -1,8 +1,4 @@
-// internal/models/objects.go
-
 package models
-
-// objects.go
 
 import (
 	"context"

@@ -1,11 +1,7 @@
-// internal/models/models.go
-
 package models
 
-// models.go
-
 type Bucket struct {
-	ID        int64  `json:"-"` // internal ID - never expose
+	ID        int64  `json:"-"`
 	Name      string `json:"name"`
 	CreatedAt int64  `json:"created_at"`
 }
@@ -19,26 +15,26 @@ const (
 )
 
 type AccessKey struct {
-	ID         int64         `json:"-"` // internal ID - never expose
+	ID         int64         `json:"-"`
 	BucketID   int64         `json:"bucket_id"`
 	KeyID      string        `json:"key_id"`
-	SecretHash string        `json:"-"` // secret hash - never expose
+	SecretHash string        `json:"-"`
 	Role       AccessKeyRole `json:"role"`
 	CreatedAt  int64         `json:"created_at"`
 }
 
 type Object struct {
-	ID          int64  `json:"-"` // internal ID - never expose
+	ID          int64  `json:"-"`
 	BucketID    int64  `json:"bucket_id"`
 	ObjectKey   string `json:"object_key"`
-	FilePath    string `json:"-"` // internal file path - never expose
+	FilePath    string `json:"-"`
 	Size        int64  `json:"size"`
 	ContentType string `json:"content_type"`
 	Checksum    string `json:"checksum"`
 	CreatedAt   int64  `json:"created_at"`
 }
 
-// Response DTOs - control what data is exposed in API responses
+// Dtos that will be returned to the client
 
 type BucketResponse struct {
 	Name      string `json:"name"`

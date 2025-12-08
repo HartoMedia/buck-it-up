@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-	// DB path can be configured via BUCK_DB_PATH (defaults to data.db)
 	dbPath := os.Getenv("BUCK_DB_PATH")
 	if dbPath == "" {
 		dbPath = "data.db"
@@ -20,7 +19,6 @@ func main() {
 	d := db.Open(dbPath)
 	defer d.Close()
 
-	// Create router from internal/http
 	r := httpinternal.New(d)
 
 	addr := ":8080"

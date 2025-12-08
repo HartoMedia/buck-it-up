@@ -123,15 +123,27 @@ curl -H "Authorization: Bearer abc123:xyz789secret" \
 - Bucket doesn't exist
 - Object doesn't exist
 
-## Future: Admin Access
+## Admin Access
 
-Currently, bucket creation (`POST /`) and listing all buckets (`LIST /`) are unprotected. In the future, these will be protected by a system administrator password that can access all buckets and perform all operations.
+Bucket creation (`POST /`) and listing all buckets (`LIST /`) now require admin authentication. Admin access is protected by a password that can access all buckets and perform all administrative operations.
+
+### Admin Authentication
+
+To use admin operations, you must:
+1. Set the `ADMIN_PASSWORD` environment variable
+2. Use the admin credentials in your requests:
+   ```
+   Authorization: Bearer admin:<ADMIN_PASSWORD>
+   ```
+
+See [ADMIN_ACCESS.md](ADMIN_ACCESS.md) for complete admin documentation.
 
 ## Examples
 
-### Creating a Bucket
+### Creating a Bucket (Admin Only)
 ```bash
 curl -X POST http://localhost:8080/ \
+  -H "Authorization: Bearer admin:your_admin_password" \
   -H "Content-Type: application/json" \
   -d '{"name":"myBucket"}'
 ```

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- UI is built by AI for the sake of a fast release-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -551,13 +552,11 @@
                 const newKey = await response.json();
                 currentRecreatedKey = newKey;
 
-                // Show the new key with secret
                 document.getElementById('recreatedRole').textContent = roleNames[newKey.role] || newKey.role;
                 document.getElementById('recreatedKeyId').textContent = newKey.key_id;
                 document.getElementById('recreatedSecret').textContent = newKey.secret;
                 document.getElementById('recreatedKeyModal').classList.add('show');
 
-                // Reload access keys to show the new key
                 await loadAccessKeys();
             } catch (err) {
                 alert('Error recreating access key: ' + err.message);
@@ -618,9 +617,7 @@
                 if (response.status === 401) { logout(); return; }
                 if (!response.ok) throw new Error('Failed to load objects');
                 let objects = await response.json();
-                // Normalize possible null / non-array responses to empty array
                 if (!Array.isArray(objects)) {
-                    // Some APIs might wrap in an object like {objects: [...]} - try to unwrap
                     if (objects && Array.isArray(objects.objects)) {
                         objects = objects.objects;
                     } else {
@@ -634,12 +631,11 @@
             }
         }
         let objectTree = null;
-        let folderOpenState = {}; // path -> bool
+        let folderOpenState = {};
 
         function buildTree(objects) {
-            // Defensive: ensure iterable
             if (!Array.isArray(objects)) objects = [];
-            const root = { name: '', children: {}, object: null }; // object for leaf nodes
+            const root = { name: '', children: {}, object: null };
             for (const obj of objects) {
                 const key = obj.object_key;
                 const parts = key.split('/');
@@ -667,12 +663,10 @@
             const loading = document.getElementById('loading');
             const emptyState = document.getElementById('emptyState');
 
-            // If root has no children
             if (!root || Object.keys(root.children).length === 0) {
                 loading.style.display = 'none';
                 emptyState.style.display = 'block';
                 table.style.display = 'none';
-                // Bust image cache to encourage new random SVG (adds dummy query param)
                 const img = document.getElementById('emptyStateImage');
                 if (img) img.src = '/ui/empty.svg?rand=' + Date.now();
                 return;
@@ -685,7 +679,6 @@
 
             function walk(node, depth, parentOpen) {
                 const isRoot = depth === 0 && node.name === '';
-                // Sort folders then files alphabetically
                 const entries = Object.values(node.children).sort((a,b)=>{
                     const aFolder = Object.keys(a.children).length > 0 || !a.object;
                     const bFolder = Object.keys(b.children).length > 0 || !b.object;
@@ -696,17 +689,15 @@
                     const childIsFolder = (Object.keys(child.children).length > 0 && (child.object == null || Object.keys(child.children).length > 0));
                     const path = child.fullPath;
                     const open = folderOpenState[path];
-                    const visible = parentOpen; // ancestor must be open
+                    const visible = parentOpen;
 
                     if (childIsFolder) {
                         if (visible) {
                             const itemCount = countDescendantObjects(child);
                             rows.push(renderFolderRow(child.name, path, depth, open, itemCount));
                         }
-                        // Recurse only if folder is open (to build rows for children that are visible)
                         walk(child, depth + 1, visible && open);
                     } else {
-                        // Leaf object
                         if (visible) {
                             rows.push(renderObjectRow(child.object, depth));
                         }
@@ -757,7 +748,6 @@
             function escapeHtml(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
             function escapeJs(s) { return s.replace(/['"\\]/g, c => '\\' + c); }
 
-            // Walk starting from root (root is implicitly visible)
             walk(root, 0, true);
             tbody.innerHTML = rows.join('');
         }
@@ -768,8 +758,7 @@
         }
 
         function displayObjects(objects) {
-            // Build tree and render hierarchical view
-            folderOpenState = folderOpenState || {}; // preserve existing open states across refreshes
+            folderOpenState = folderOpenState || {};
             objectTree = buildTree(objects);
             renderTree(objectTree);
         }
@@ -823,7 +812,6 @@
                 };
                 reader.readAsArrayBuffer(file);
             } else {
-                // Encode text content as base64 to preserve special characters
                 const text = document.getElementById('contentText').value;
                 const contentB64 = base64EncodeText(text);
                 await uploadObject(auth, objectKey, contentB64, contentType, true);
@@ -921,7 +909,6 @@
         function copyObjectKey(objectKey) {
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(objectKey).then(() => {
-                    // Show a temporary success message
                     const btn = event.target;
                     const originalText = btn.textContent;
                     btn.textContent = '✓ Copied!';
@@ -972,7 +959,6 @@
         });
         loadObjects();
 
-        // UTF-8 safe base64 encoder for text content
         function base64EncodeText(str) {
             if (window.TextEncoder) {
                 const bytes = new TextEncoder().encode(str);
@@ -980,10 +966,8 @@
                 for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
                 return btoa(binary);
             }
-            // Fallback for older browsers
             return btoa(unescape(encodeURIComponent(str)));
         }
-        // Base64 to Uint8Array
         function base64ToBytes(b64) {
             const binary = atob(b64);
             const len = binary.length;
@@ -991,12 +975,10 @@
             for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
             return bytes;
         }
-        // Uint8Array to UTF-8 string
         function bytesToUtf8(bytes) {
             if (window.TextDecoder) {
                 return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
             }
-            // Fallback
             let binary = '';
             for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
             return decodeURIComponent(escape(binary));

@@ -1,7 +1,5 @@
 package db
 
-// sqlite.go
-
 import (
 	"database/sql"
 	"log"

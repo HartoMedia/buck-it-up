@@ -24,9 +24,7 @@ var emptySVGsFS embed.FS
 var emptySVGFiles []string
 
 func init() {
-	// Seed RNG once
 	rand.Seed(time.Now().UnixNano())
-	// Build list of embedded SVG file paths
 	entries, err := emptySVGsFS.ReadDir("empty_svgs")
 	if err == nil {
 		for _, e := range entries {
@@ -56,7 +54,6 @@ func (r *Router) uiBucketView(w nethttp.ResponseWriter, _ *nethttp.Request) {
 }
 
 func (r *Router) uiRandomEmptySVG(w nethttp.ResponseWriter, _ *nethttp.Request) {
-	// Serve a random embedded SVG (no per-request reseed)
 	if len(emptySVGFiles) == 0 {
 		nethttp.Error(w, "no svgs available", nethttp.StatusInternalServerError)
 		return
@@ -68,7 +65,6 @@ func (r *Router) uiRandomEmptySVG(w nethttp.ResponseWriter, _ *nethttp.Request) 
 		return
 	}
 	w.Header().Set("Content-Type", "image/svg+xml")
-	// Prevent caching so repeated loads can show different SVGs
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(nethttp.StatusOK)
 	_, _ = w.Write(data)

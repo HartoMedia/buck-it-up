@@ -12,8 +12,8 @@ services:
       - PORT=8080
       - BUCK_DB_PATH=/app/data/data.db
       - BUCK_DATA_PATH=/app/data
+      - ADMIN_PASSWORD=admin
     volumes:
-      # Persist database and uploaded files
       - buck-data:/app/data
     restart: unless-stopped
     healthcheck:

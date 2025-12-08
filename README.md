@@ -32,8 +32,8 @@ try { Invoke-RestMethod -Uri http://localhost:8082/buckets/test -ErrorAction Sto
 Notes:
 - The project uses modernc.org/sqlite so it doesn't require cgo (fixes the previous go-sqlite3 "CGO_ENABLED=0" issue).
 - Default DB file is data.db in the repo root. It will be created automatically and migrations applied on first run.
-- **Admin Access:** Set `ADMIN_PASSWORD` environment variable to enable admin access to all routes. See [ADMIN_ACCESS.md](ADMIN_ACCESS.md) for details.
-- **Web UI:** Access the admin dashboard at `/ui` for a graphical interface. See [WEBUI_DOCUMENTATION.md](WEBUI_DOCUMENTATION.md) for details.
+- **Admin Access:** Set `ADMIN_PASSWORD` environment variable to enable admin access to all routes. See [ADMIN_ACCESS.md](doc/ADMIN_ACCESS.md) for details.
+- **Web UI:** Access the admin dashboard at `/ui` for a graphical interface. See [WEBUI_DOCUMENTATION.md](doc/WEBUI_DOCUMENTATION.md) for details.
 
 # Buck It Up
 
@@ -73,7 +73,7 @@ $env:ADMIN_PASSWORD = "your-secure-password"
 # Open browser to http://localhost:8080/ui
 ```
 
-See [WEBUI_DOCUMENTATION.md](WEBUI_DOCUMENTATION.md) for complete UI documentation.
+See [WEBUI_DOCUMENTATION.md](doc/WEBUI_DOCUMENTATION.md) for complete UI documentation.
 
 ## Authentication
 
@@ -82,7 +82,7 @@ Buck It Up uses two authentication methods:
 1. **Access Keys** - Bucket-specific credentials with role-based permissions (read-only, read-write, all)
 2. **Admin Password** - Global administrator access to all buckets and routes (required for Web UI)
 
-See [AUTHENTICATION.md](AUTHENTICATION.md) for access key details and [ADMIN_ACCESS.md](ADMIN_ACCESS.md) for admin password setup.
+See [AUTHENTICATION.md](doc/AUTHENTICATION.md) for access key details and [ADMIN_ACCESS.md](doc/ADMIN_ACCESS.md) for admin password setup.
 
 ## Quick Admin Usage
 

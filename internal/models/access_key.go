@@ -1,8 +1,4 @@
-// internal/models/access_keys.go
-
 package models
-
-// access_keys.go
 
 import (
 	"context"

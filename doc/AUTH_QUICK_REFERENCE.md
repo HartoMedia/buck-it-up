@@ -11,8 +11,8 @@ Authorization: Bearer <key_id>:<secret>
 |----------|---------|-----------|------------|-----|
 | `GET /health` | ✓ | ✓ | ✓ | ✓ |
 | `GET /echo` | ✓ | ✓ | ✓ | ✓ |
-| `LIST /` | ✓* | ✓* | ✓* | ✓* |
-| `POST /` | ✓* | ✓* | ✓* | ✓* |
+| `LIST /` | ✗ | ✗ | ✗ | ✓ |
+| `POST /` | ✗ | ✗ | ✗ | ✓ |
 | `GET /{name}` | ✗ | ✓ | ✓ | ✓ |
 | `LIST /{bucketName}` | ✗ | ✓ | ✓ | ✓ |
 | `GET /{bucketName}/all/*` | ✗ | ✓ | ✓ | ✓ |
@@ -22,13 +22,26 @@ Authorization: Bearer <key_id>:<secret>
 | `DELETE /{bucketName}/*` | ✗ | ✗ | ✓ | ✓ |
 | `DELETE /{bucketName}` | ✗ | ✗ | ✗ | ✓ |
 
-*Currently unprotected, will require admin auth in future
 
 ## Usage Examples
 
-### Create Bucket
+### Admin Authentication
+For admin-only operations (listing/creating buckets), use:
+```bash
+Authorization: Bearer admin:<ADMIN_PASSWORD>
+```
+Where `<ADMIN_PASSWORD>` is the value set in the `ADMIN_PASSWORD` environment variable.
+
+### List All Buckets (Admin Only)
+```bash
+curl -X LIST http://localhost:8080/ \
+  -H "Authorization: Bearer admin:your_admin_password"
+```
+
+### Create Bucket (Admin Only)
 ```bash
 curl -X POST http://localhost:8080/ \
+  -H "Authorization: Bearer admin:your_admin_password" \
   -H "Content-Type: application/json" \
   -d '{"name":"myBucket"}'
 ```
@@ -63,6 +76,8 @@ curl -X DELETE http://localhost:8080/myBucket \
 | 500 | Internal server error |
 
 ## Important Notes
+
+🔐 **Admin password required**: Set `ADMIN_PASSWORD` environment variable to enable admin operations (LIST /, POST /).
 
 ⚠️ **Secrets are shown only once** during bucket creation. Store them securely!
 
