@@ -11,132 +11,38 @@ func GetOpenAPISpec() []byte {
   "info": {
     "title": "Buck It Up API",
     "version": "1.0.0",
-    "description": "Auto-generated OpenAPI spec for Buck It Up (generated from project router and yaak export)."
+    "description": "OpenAPI spec for Buck It Up with Bearer Auth and custom LIST method described using vendor extensions."
   },
   "servers": [
     { "url": "http://localhost:8080" }
   ],
-  "paths": {
-    "/health": {
-      "get": {
-        "summary": "Health check",
-        "responses": { "200": { "description": "ok" } }
+
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     },
-    "/echo": {
-      "get": {
-        "summary": "Echo request body",
-        "description": "Echoes the request body back (router currently registers GET for echo).",
-        "requestBody": { "content": { "application/octet-stream": {} }, "required": false },
-        "responses": { "200": { "description": "echoed body" } }
-      }
-    },
-    "/": {
-      "get": {
-        "summary": "List buckets",
-        "description": "Lists all buckets (note: the router registers a custom LIST method for this; GET is provided here so you can quickly browse).",
-        "responses": { "200": { "description": "array of buckets" } }
+    "schemas": {
+      "NewBucket": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" }
+        },
+        "required": ["name"]
       },
-      "post": {
-        "summary": "Create bucket",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/NewBucket" }
-            }
+      "RecreateAccessKeyRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["readOnly", "readWrite", "all"]
           }
         },
-        "responses": { "201": { "description": "bucket created" }, "409": { "description": "bucket exists" } }
-      }
-    },
-    "/{name}": {
-      "get": {
-        "summary": "Get bucket by name",
-        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "bucket" }, "404": { "description": "not found" } }
+        "required": ["role"]
       },
-      "delete": {
-        "summary": "Delete bucket by name",
-        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "204": { "description": "deleted" }, "409": { "description": "bucket not empty" } }
-      }
-    },
-    "/{name}/access-keys": {
-      "get": {
-        "summary": "List access keys for a bucket",
-        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "array of access keys" } }
-      }
-    },
-    "/{name}/access-keys/recreate": {
-      "post": {
-        "summary": "Recreate an access key for a bucket",
-        "parameters": [{ "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RecreateAccessKeyRequest" } } } },
-        "responses": { "201": { "description": "new access key" } }
-      }
-    },
-    "/{bucketName}": {
-      "get": {
-        "summary": "List objects in a bucket",
-        "parameters": [{ "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "responses": { "200": { "description": "array of objects" } }
-      }
-    },
-    "/{bucketName}/upload": {
-      "post": {
-        "summary": "Upload an object to a bucket",
-        "parameters": [{ "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UploadObjectRequest" } } } },
-        "responses": { "201": { "description": "object created" }, "409": { "description": "object already exists" } }
-      }
-    },
-    "/{bucketName}/all/{objectKey}": {
-      "get": {
-        "summary": "Get object (metadata + base64 content)",
-        "parameters": [
-          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "objectKey", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Object key; may include slashes" }
-        ],
-        "responses": { "200": { "description": "object with base64 content" }, "404": { "description": "not found" } }
-      }
-    },
-    "/{bucketName}/metadata/{objectKey}": {
-      "get": {
-        "summary": "Get object metadata only",
-        "parameters": [
-          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "objectKey", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": { "200": { "description": "object metadata" }, "404": { "description": "not found" } }
-      }
-    },
-    "/{bucketName}/content/{objectKey}": {
-      "get": {
-        "summary": "Get object raw content (streamed)",
-        "parameters": [
-          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "objectKey", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": { "200": { "description": "raw content" }, "404": { "description": "not found" } }
-      }
-    },
-    "/{bucketName}/{objectKey}": {
-      "delete": {
-        "summary": "Delete an object",
-        "parameters": [
-          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } },
-          { "name": "objectKey", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": { "204": { "description": "deleted" }, "404": { "description": "not found" } }
-      }
-    }
-  },
-  "components": {
-    "schemas": {
-      "NewBucket": { "type": "object", "properties": { "name": { "type": "string" } }, "required": ["name"] },
-      "RecreateAccessKeyRequest": { "type": "object", "properties": { "role": { "type": "string", "enum": ["readOnly", "readWrite", "all"] } }, "required": ["role"] },
       "UploadObjectRequest": {
         "type": "object",
         "properties": {
@@ -148,8 +54,218 @@ func GetOpenAPISpec() []byte {
         "required": ["object_key", "content"]
       }
     }
+  },
+
+  "security": [
+    { "bearerAuth": [] }
+  ],
+
+  "paths": {
+    "/health": {
+      "get": {
+        "security": [],
+        "summary": "Health check",
+        "responses": {
+          "200": { "description": "ok" }
+        }
+      }
+    },
+
+    "/echo": {
+      "get": {
+        "security": [],
+        "summary": "Echo request body",
+        "description": "Echoes the request body back.",
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {}
+          },
+          "required": false
+        },
+        "responses": {
+          "200": { "description": "echoed body" }
+        }
+      }
+    },
+
+    "/": {
+      "get": {
+        "summary": "List buckets (GET fallback)",
+        "description": "Primary method is LIST (custom HTTP verb), but GET is provided for tooling compatibility.",
+        "responses": {
+          "200": { "description": "array of buckets" }
+        }
+      },
+      "x-list": {
+        "summary": "List buckets (custom HTTP LIST method)",
+        "description": "This endpoint supports a custom HTTP method LIST, which is the real method used by the router.",
+        "responses": {
+          "200": { "description": "array of buckets" }
+        }
+      },
+      "post": {
+        "summary": "Create bucket",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NewBucket" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "bucket created" },
+          "409": { "description": "bucket exists" }
+        }
+      }
+    },
+
+    "/{name}": {
+      "get": {
+        "summary": "Get bucket by name",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "bucket" },
+          "404": { "description": "not found" }
+        }
+      },
+      "delete": {
+        "summary": "Delete bucket by name",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "deleted" },
+          "409": { "description": "bucket not empty" }
+        }
+      }
+    },
+
+    "/{name}/access-keys": {
+      "get": {
+        "summary": "List access keys for a bucket",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "array of access keys" }
+        }
+      }
+    },
+
+    "/{name}/access-keys/recreate": {
+      "post": {
+        "summary": "Recreate an access key for a bucket",
+        "parameters": [
+          { "name": "name", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RecreateAccessKeyRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "new access key" }
+        }
+      }
+    },
+
+    "/{bucketName}": {
+      "get": {
+        "summary": "List objects in a bucket",
+        "parameters": [
+          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "array of objects" }
+        }
+      }
+    },
+
+    "/{bucketName}/upload": {
+      "post": {
+        "summary": "Upload an object to a bucket",
+        "parameters": [
+          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UploadObjectRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "object created" },
+          "409": { "description": "object already exists" }
+        }
+      }
+    },
+
+    "/{bucketName}/all/{objectKey}": {
+      "get": {
+        "summary": "Get object (metadata + base64 content)",
+        "parameters": [
+          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "objectKey", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Object key; may include slashes" }
+        ],
+        "responses": {
+          "200": { "description": "object with base64 content" },
+          "404": { "description": "not found" }
+        }
+      }
+    },
+
+    "/{bucketName}/metadata/{objectKey}": {
+      "get": {
+        "summary": "Get object metadata only",
+        "parameters": [
+          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "objectKey", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "object metadata" },
+          "404": { "description": "not found" }
+        }
+      }
+    },
+
+    "/{bucketName}/content/{objectKey}": {
+      "get": {
+        "summary": "Get object raw content (streamed)",
+        "parameters": [
+          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "objectKey", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "raw content" },
+          "404": { "description": "not found" }
+        }
+      }
+    },
+
+    "/{bucketName}/{objectKey}": {
+      "delete": {
+        "summary": "Delete an object",
+        "parameters": [
+          { "name": "bucketName", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "objectKey", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "deleted" },
+          "404": { "description": "not found" }
+        }
+      }
+    }
   }
 }
+
 `)
 }
 
