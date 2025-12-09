@@ -45,6 +45,8 @@ func New(db *sql.DB) *Router {
 	//Misc routes - no auth required
 	r.mux.Get("/health", r.health)
 	r.mux.Get("/echo", r.echo)
+	r.mux.Get("/openapi.json", r.serveOpenAPI)
+	r.mux.Get("/swagger", r.serveSwaggerUI)
 
 	// UI - auth handled in browser
 	r.mux.Get("/ui/login", r.uiLogin)
@@ -174,6 +176,20 @@ func (r *Router) echo(w nethttp.ResponseWriter, req *nethttp.Request) {
 	}
 	w.WriteHeader(nethttp.StatusOK)
 	_, _ = w.Write(body)
+}
+
+// serveOpenAPI returns the generated OpenAPI JSON document
+func (r *Router) serveOpenAPI(w nethttp.ResponseWriter, req *nethttp.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(nethttp.StatusOK)
+	_, _ = w.Write(GetOpenAPISpec())
+}
+
+// serveSwaggerUI returns a small HTML page that loads Swagger UI and points it to /openapi.json
+func (r *Router) serveSwaggerUI(w nethttp.ResponseWriter, req *nethttp.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(nethttp.StatusOK)
+	_, _ = w.Write(GetSwaggerHTML())
 }
 
 func (r *Router) createBucket(w nethttp.ResponseWriter, req *nethttp.Request) {

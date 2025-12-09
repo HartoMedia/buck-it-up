@@ -119,4 +119,5 @@ Please follow existing code style and write small, focused commits.
 
 - Web UI improvements
 - Add CORS Settings for Buckets
+- Automatic Backup Sync with other instances
 - Improved large-file handling and streaming uploads
