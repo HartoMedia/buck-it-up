@@ -6,7 +6,7 @@ Short Description
 
 Buck It Up is a lightweight object storage HTTP service with bucket management, role-based access keys, an admin password mode, and a built-in web admin UI. It uses an embedded SQLite database and stores object files on disk so you can self-host small-to-medium workloads without external object stores.
 
-Table of Contents
+## Table of Contents
 
 - Features
 - Installation
