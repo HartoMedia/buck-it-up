@@ -178,14 +178,13 @@ func (r *Router) echo(w nethttp.ResponseWriter, req *nethttp.Request) {
 	_, _ = w.Write(body)
 }
 
-// serveOpenAPI returns the generated OpenAPI JSON document
+// returns the JSON for the swagger
 func (r *Router) serveOpenAPI(w nethttp.ResponseWriter, req *nethttp.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(nethttp.StatusOK)
 	_, _ = w.Write(GetOpenAPISpec())
 }
 
-// serveSwaggerUI returns a small HTML page that loads Swagger UI and points it to /openapi.json
 func (r *Router) serveSwaggerUI(w nethttp.ResponseWriter, req *nethttp.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(nethttp.StatusOK)
